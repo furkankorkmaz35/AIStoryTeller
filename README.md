@@ -18,14 +18,39 @@ AI Video Generator, kullanicidan aldigi tema ve stil ayarlariyla cocuklara uygun
 ```bash
 pnpm install
 cp .env.example .env
-pnpm stack:up
 ```
 
 Varsayilan demo modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` ve `GROQ_API_KEY` girin. Gemini kullanmak icin `AI_PROVIDER=gemini` ve `GEMINI_API_KEY` girin. `AI_PROVIDER=auto` secilirse sistem once Groq, sonra Gemini, sonra fallback dener.
 
 Ses icin varsayilan `TTS_PROVIDER=system` ayarlidir. macOS `say` komutu varsa gercek narration dosyasi uretir; calismazsa sessiz WAV fallback uretir.
 
-## Calistirma
+## Docker Compose ile Calistirma
+
+Tum sistemi Docker Compose ile tek komutta baslatabilirsiniz:
+
+```bash
+pnpm stack:up
+```
+
+Bu komut su servisleri ayaga kaldirir:
+
+- `web`: Vue arayuzu + Nginx reverse proxy (`http://localhost:5173`)
+- `api`: Express API (`http://localhost:4000`)
+- `worker`: BullMQ video pipeline worker
+- `mongodb`: MongoDB (`localhost:27017`)
+- `redis`: Redis (`localhost:6380`)
+
+Docker icinde servisler birbirleriyle container adlari uzerinden haberlesir. API ve worker icin `MONGODB_URI=mongodb://mongodb:27017/ai-video-generator`, `REDIS_HOST=redis`, `REDIS_PORT=6379` degerleri compose tarafindan otomatik verilir.
+
+Servisleri durdurmak icin:
+
+```bash
+pnpm stack:down
+```
+
+Docker Desktop kapaliysa once Docker'i acin, sonra `pnpm stack:up` komutunu tekrar calistirin. Redis host portu proje icin `6380` olarak ayarlandi; bu sayede bilgisayarda baska Redis servisleri varsa port cakismasi azalir.
+
+## Lokal Gelistirme
 
 Uc terminal kullanin:
 
@@ -47,8 +72,6 @@ API saglik kontrolu: `http://localhost:4000/health`
 
 Sistem durumu: `http://localhost:4000/api/system/status`
 
-Docker Desktop kapaliysa once Docker'i acin, sonra `pnpm stack:up` komutunu tekrar calistirin. Redis host portu proje icin `6380` olarak ayarlandi; bu sayede bilgisayarda baska Redis servisleri varsa port cakismasi azalir.
-
 ## Demo Akisi
 
 1. Web arayuzunde tema, stil, yas grubu ve sahne sayisi secilir.
@@ -61,12 +84,9 @@ Docker Desktop kapaliysa once Docker'i acin, sonra `pnpm stack:up` komutunu tekr
 
 ```bash
 pnpm stack:up
-pnpm dev:api
-pnpm worker
-pnpm dev:web
 ```
 
-Sonra `http://localhost:5173` adresinden yeni proje olusturun. Sistem strip'i MongoDB, queue ve provider durumlarini gosterir.
+Sonra `http://localhost:5173` adresinden yeni proje olusturun. Web container'i `/api` ve `/outputs` isteklerini Express API container'ina proxy eder.
 
 ## API Ozeti
 
