@@ -15,5 +15,70 @@ services:
     ports:
       - "6380:6379"
 
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: ai-video-api
+    container_name: ai-video-api
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      MONGODB_URI: mongodb://mongodb:27017/ai-video-generator
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PUBLIC_API_BASE_URL: http://api:4000
+      AI_PROVIDER: ${AI_PROVIDER:-fallback}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      TTS_PROVIDER: ${TTS_PROVIDER:-fallback}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-fallback}
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - api_outputs:/app/apps/api/public/outputs
+
+  worker:
+    image: ai-video-api
+    container_name: ai-video-worker
+    restart: unless-stopped
+    command: ["pnpm", "--filter", "@ai-video/api", "start:worker"]
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/ai-video-generator
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PUBLIC_API_BASE_URL: http://api:4000
+      AI_PROVIDER: ${AI_PROVIDER:-fallback}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+      TTS_PROVIDER: ${TTS_PROVIDER:-fallback}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-fallback}
+    depends_on:
+      - api
+      - mongodb
+      - redis
+    volumes:
+      - api_outputs:/app/apps/api/public/outputs
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: ai-video-web
+    container_name: ai-video-web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
 volumes:
   mongodb_data:
+  api_outputs:
