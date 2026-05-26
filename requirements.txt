@@ -1,4 +1,0 @@
-google-generativeai>=0.8.5
-gTTS>=2.5.4
-moviepy>=1.0.3
-Pillow>=10.4.0
