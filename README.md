@@ -1,56 +1,99 @@
-# AIStoryTeller
+# AI Video Generator
 
-AIStoryTeller, kullanicidan aldigi tema ile cocuklara uygun hikaye ureten, hikayeyi veritabanina kaydeden, sahnelere gore en az 3 gorsel olusturan, metni sese ceviren ve ses-gorsel-altyazi iceren video cikaran bir Python projesidir.
+AI Video Generator, kullanicidan aldigi tema ve stil ayarlariyla cocuklara uygun hikaye ureten, hikayeyi MongoDB'ye kaydeden, sahne gorselleri ve ses dosyasi olusturan, Remotion ile altyazili MP4 video render eden bir web uygulamasidir.
+
+## Teknoloji Stack'i
+
+- Vue 3 + Vite + TypeScript
+- Node.js + Express + TypeScript
+- MongoDB + Mongoose
+- BullMQ + Redis
+- Remotion
+- Groq/Gemini + fallback story generation
+- Image provider + fallback SVG scenes
+- macOS system TTS + audio fallback WAV
 
 ## Kurulum
 
-```powershell
-py -m pip install -r requirements.txt
+```bash
+pnpm install
+cp .env.example .env
+pnpm stack:up
 ```
 
-Python sistemde `py` komutuyla gelmiyorsa kendi Python yolunuzu kullanabilirsiniz.
+Varsayilan demo modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` ve `GROQ_API_KEY` girin. Gemini kullanmak icin `AI_PROVIDER=gemini` ve `GEMINI_API_KEY` girin. `AI_PROVIDER=auto` secilirse sistem once Groq, sonra Gemini, sonra fallback dener.
 
-## API Anahtari
-
-Gemini ile hikaye uretmek icin ortam degiskeni tanimlayin:
-
-```powershell
-$env:GEMINI_API_KEY="anahtariniz"
-```
-
-Isterseniz `.env.example` dosyasini `.env` olarak kopyalayip anahtari oraya da yazabilirsiniz. Anahtar verilmezse uygulama yerel ornek hikaye uretir. Bu sayede proje eksik ortamda da akisi gosterebilir.
+Ses icin varsayilan `TTS_PROVIDER=system` ayarlidir. macOS `say` komutu varsa gercek narration dosyasi uretir; calismazsa sessiz WAV fallback uretir.
 
 ## Calistirma
 
-```powershell
-py Project.py --theme "Cesur robot"
+Uc terminal kullanin:
+
+```bash
+pnpm dev:api
 ```
 
-Internet veya API anahtari olmadan hizli demo almak icin:
-
-```powershell
-py Project.py --theme "Cesur robot" --offline
+```bash
+pnpm worker
 ```
 
-Uygulama ciktilari `outputs` klasorune yazar:
+```bash
+pnpm dev:web
+```
 
-- `outputs/assets`: Sahne gorselleri
-- `outputs/*-narration.mp3`: Seslendirme
-- `outputs/*-video.mp4`: Video
-- `ai_storyteller.db`: SQLite veritabani
+Web arayuzu: `http://localhost:5173`
 
-## Dokumanda Istenen Story'ler
+API saglik kontrolu: `http://localhost:4000/health`
 
-Proje `SCRUM_BOARD.md` dosyasinda 100 story point olarak takip edilir. Kod icinde her story su sekilde karsilanir:
+Sistem durumu: `http://localhost:4000/api/system/status`
 
-- Story 1: `generate_story`
-- Story 2: `init_database` ve `save_story`
-- Story 3: `generate_images`
-- Story 4: `create_audio`
-- Story 5: `create_video`
-- Story 6: MoviePy fade efektleri
-- Story 7: MoviePy `TextClip` altyazi katmani
+Docker Desktop kapaliysa once Docker'i acin, sonra `pnpm stack:up` komutunu tekrar calistirin. Redis host portu proje icin `6380` olarak ayarlandi; bu sayede bilgisayarda baska Redis servisleri varsa port cakismasi azalir.
 
-## Notlar
+## Demo Akisi
 
-Video uretimi icin MoviePy'nin kullanabildigi ffmpeg ve altyazi icin ImageMagick gerekebilir. Paket veya internet eksikse uygulama hatayi acikca yazar ve olusan ara ciktilari korur.
+1. Web arayuzunde tema, stil, yas grubu ve sahne sayisi secilir.
+2. Express API MongoDB'de proje olusturur.
+3. BullMQ worker hikaye, gorsel, ses ve video adimlarini sirayla calistirir.
+4. Dashboard proje durumlarini ve pipeline loglarini gosterir.
+5. Proje detayinda video player, hikaye, sahneler, assetler ve MP4 indirme linki gorunur.
+
+## Final Demo Komut Sirasi
+
+```bash
+pnpm stack:up
+pnpm dev:api
+pnpm worker
+pnpm dev:web
+```
+
+Sonra `http://localhost:5173` adresinden yeni proje olusturun. Sistem strip'i MongoDB, queue ve provider durumlarini gosterir.
+
+## API Ozeti
+
+- `POST /api/projects`: Yeni video projesi olusturur ve pipeline'i baslatir.
+- `GET /api/projects`: Projeleri listeler.
+- `GET /api/projects/:id`: Proje, sahne, asset ve log detaylarini getirir.
+- `POST /api/projects/:id/retry`: Projeyi yeniden BullMQ pipeline'ina alir.
+- `GET /api/projects/:id/events`: Pipeline loglarini getirir.
+- `GET /api/system/status`: MongoDB, BullMQ queue ve aktif provider durumlarini getirir.
+
+## Sunum Icin Hizli Kontrol
+
+```bash
+pnpm typecheck
+pnpm build
+curl http://localhost:4000/api/system/status
+```
+
+Demo guvenilirligi icin `.env` icinde `AI_PROVIDER=fallback` ve `IMAGE_PROVIDER=fallback` kullanilabilir. Bu modda internet veya API anahtari olmasa bile video pipeline'i tamamlanir.
+
+## Ders Isterleri
+
+- LLM ile prompt/hikaye olusturma: Groq, Gemini veya fallback story service
+- Hikayeyi veritabanina kaydetme: MongoDB Project modeli
+- En az 3 gorsel olusturma: Scene bazli image generation
+- Hikayeyi sese donusturme: macOS system TTS veya audio fallback service
+- Ses ve gorsellerle video olusturma: Remotion render
+- Gorsel gecis efektleri: Remotion fade/smooth zoom
+- Videoya altyazi ekleme: Remotion subtitle layer
+- Scrum board/story point: `SCRUM_BOARD.md`
