@@ -159,7 +159,7 @@ Body:
 
 ```json
 {
-  "theme": "Cesur bir robot",
+  "query": "Cesur bir robot",
   "style": "cinematic",
   "ageGroup": "7-10",
   "sceneCount": 3
