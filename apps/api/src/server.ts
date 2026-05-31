@@ -1,11 +1,11 @@
 import express from "express";
 import cors from "cors";
-import path from "node:path";
 import { env } from "./config/env.js";
 import { connectDatabase } from "./config/db.js";
-import { publicRoot } from "./utils/paths.js";
+import { outputsRoot } from "./utils/paths.js";
 import { projectsRouter } from "./routes/projects.js";
 import { systemRouter } from "./routes/system.js";
+
 
 await connectDatabase();
 
@@ -13,7 +13,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
-app.use("/outputs", express.static(path.join(publicRoot, "outputs")));
+app.use("/outputs", express.static(outputsRoot));
 
 app.get("/health", (_request, response) => {
   response.json({ ok: true, service: "ai-video-api" });

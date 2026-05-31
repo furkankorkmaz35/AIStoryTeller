@@ -15,6 +15,7 @@ router.get("/status", async (_request, response, next) => {
       providers: {
         ai: env.aiProvider,
         image: env.imageProvider,
+        tts: env.ttsProvider,
         video: "remotion"
       }
     });

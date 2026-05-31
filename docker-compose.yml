@@ -32,16 +32,37 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
-      TTS_PROVIDER: ${TTS_PROVIDER:-fallback}
-      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-fallback}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      TTS_PROVIDER: ${TTS_PROVIDER:-edge}
+      EDGE_TTS_VOICE: ${EDGE_TTS_VOICE:-tr-TR-EmelNeural}
+      EDGE_TTS_LANG: ${EDGE_TTS_LANG:-tr-TR}
+      EDGE_TTS_OUTPUT_FORMAT: ${EDGE_TTS_OUTPUT_FORMAT:-audio-24khz-48kbitrate-mono-mp3}
+      EDGE_TTS_RATE: ${EDGE_TTS_RATE:-+0%}
+      EDGE_TTS_PITCH: ${EDGE_TTS_PITCH:-+0Hz}
+      EDGE_TTS_VOLUME: ${EDGE_TTS_VOLUME:-+0%}
+      EDGE_TTS_MAX_CHARACTERS: ${EDGE_TTS_MAX_CHARACTERS:-4500}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-JBFqnCBsd6RMkjVDRZzb}
+      ELEVENLABS_MODEL: ${ELEVENLABS_MODEL:-eleven_multilingual_v2}
+      ELEVENLABS_MAX_CHARACTERS: ${ELEVENLABS_MAX_CHARACTERS:-4500}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-huggingface}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_IMAGE_MODEL: ${HF_IMAGE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}
+      HF_INFERENCE_BASE_URL: ${HF_INFERENCE_BASE_URL:-https://api-inference.huggingface.co/models}
+      HF_IMAGE_STEPS: ${HF_IMAGE_STEPS:-25}
+      HF_GUIDANCE_SCALE: ${HF_GUIDANCE_SCALE:-7.5}
+      OUTPUTS_DIR: /app/outputs
     ports:
       - "4000:4000"
     depends_on:
       - mongodb
       - redis
     volumes:
-      - api_outputs:/app/apps/api/public/outputs
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/api/dist     
+      - ./outputs:/app/outputs
 
   worker:
     image: ai-video-api
@@ -57,15 +78,36 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
-      TTS_PROVIDER: ${TTS_PROVIDER:-fallback}
-      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-fallback}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      TTS_PROVIDER: ${TTS_PROVIDER:-edge}
+      EDGE_TTS_VOICE: ${EDGE_TTS_VOICE:-tr-TR-EmelNeural}
+      EDGE_TTS_LANG: ${EDGE_TTS_LANG:-tr-TR}
+      EDGE_TTS_OUTPUT_FORMAT: ${EDGE_TTS_OUTPUT_FORMAT:-audio-24khz-48kbitrate-mono-mp3}
+      EDGE_TTS_RATE: ${EDGE_TTS_RATE:-+0%}
+      EDGE_TTS_PITCH: ${EDGE_TTS_PITCH:-+0Hz}
+      EDGE_TTS_VOLUME: ${EDGE_TTS_VOLUME:-+0%}
+      EDGE_TTS_MAX_CHARACTERS: ${EDGE_TTS_MAX_CHARACTERS:-4500}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-JBFqnCBsd6RMkjVDRZzb}
+      ELEVENLABS_MODEL: ${ELEVENLABS_MODEL:-eleven_multilingual_v2}
+      ELEVENLABS_MAX_CHARACTERS: ${ELEVENLABS_MAX_CHARACTERS:-4500}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-huggingface}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_IMAGE_MODEL: ${HF_IMAGE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}
+      HF_INFERENCE_BASE_URL: ${HF_INFERENCE_BASE_URL:-https://api-inference.huggingface.co/models}
+      HF_IMAGE_STEPS: ${HF_IMAGE_STEPS:-25}
+      HF_GUIDANCE_SCALE: ${HF_GUIDANCE_SCALE:-7.5}
+      OUTPUTS_DIR: /app/outputs
     depends_on:
       - api
       - mongodb
       - redis
     volumes:
-      - api_outputs:/app/apps/api/public/outputs
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/api/dist     
+      - ./outputs:/app/outputs
 
   web:
     build:

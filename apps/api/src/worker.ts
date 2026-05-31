@@ -64,6 +64,9 @@ const worker = new Worker(
         const project = await ProjectModel.findById(projectId).orFail();
         await AssetModel.deleteMany({ projectId, type: "audio" });
         const generated = await generateNarration(projectId, project.story);
+      if (!generated) {
+            throw new Error("Seslendirme dosyası üretilemedi.");
+          }
         await AssetModel.create({ projectId, type: "audio", path: generated.audioPath, provider: generated.provider });
         await logJob(projectId, "audio", "completed", "Seslendirme dosyasi hazirlandi.");
         await enqueueVideoRender(projectId);

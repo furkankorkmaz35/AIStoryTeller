@@ -10,8 +10,8 @@ AI Video Generator, kullanicidan aldigi tema ve stil ayarlariyla cocuklara uygun
 - BullMQ + Redis
 - Remotion
 - Groq/Gemini + fallback story generation
-- Image provider + fallback SVG scenes
-- macOS system TTS + audio fallback WAV
+- Hugging Face Inference API image generation + fallback SVG scenes
+- Edge TTS / ElevenLabs text-to-speech + system/silent audio fallback
 
 ## Kurulum
 
@@ -20,9 +20,11 @@ pnpm install
 cp .env.example .env
 ```
 
-Varsayilan demo modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` ve `GROQ_API_KEY` girin. Gemini kullanmak icin `AI_PROVIDER=gemini` ve `GEMINI_API_KEY` girin. `AI_PROVIDER=auto` secilirse sistem once Groq, sonra Gemini, sonra fallback dener.
+Varsayilan hikaye modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` ve `GROQ_API_KEY` girin. Gemini kullanmak icin `AI_PROVIDER=gemini` ve `GEMINI_API_KEY` girin. `AI_PROVIDER=auto` secilirse sistem once Groq, sonra Gemini, sonra fallback dener.
 
-Ses icin varsayilan `TTS_PROVIDER=system` ayarlidir. macOS `say` komutu varsa gercek narration dosyasi uretir; calismazsa sessiz WAV fallback uretir.
+Ses icin varsayilan `TTS_PROVIDER=edge` ayarlidir. Edge TTS API anahtari istemez ve varsayilan Turkce ses `tr-TR-EmelNeural` ile MP3 uretir. Farkli bir ses icin `.env` icindeki `EDGE_TTS_VOICE` degerini degistirebilirsiniz. ElevenLabs kullanmak isterseniz `TTS_PROVIDER=elevenlabs` ve `ELEVENLABS_API_KEY` girin. Ses servisleri calismazsa system TTS veya sessiz WAV fallback devreye girer.
+
+Gorsel icin varsayilan `IMAGE_PROVIDER=huggingface` ayarlidir. Hugging Face Inference API kullanmak icin `.env` icine `HF_TOKEN` ekleyin. Varsayilan model `stabilityai/stable-diffusion-xl-base-1.0`; isterseniz `HF_IMAGE_MODEL` ile degistirebilirsiniz. Anahtar veya servis hatasi olursa sahne bazli SVG fallback uretilir ve video pipeline'i durmaz.
 
 ## Docker Compose ile Calistirma
 
@@ -105,14 +107,14 @@ pnpm build
 curl http://localhost:4000/api/system/status
 ```
 
-Demo guvenilirligi icin `.env` icinde `AI_PROVIDER=fallback` ve `IMAGE_PROVIDER=fallback` kullanilabilir. Bu modda internet veya API anahtari olmasa bile video pipeline'i tamamlanir.
+Demo guvenilirligi icin `.env` icinde `AI_PROVIDER=fallback`, `IMAGE_PROVIDER=fallback` ve `TTS_PROVIDER=fallback` kullanilabilir. Bu modda internet veya API anahtari olmasa bile video pipeline'i tamamlanir.
 
 ## Ders Isterleri
 
 - LLM ile prompt/hikaye olusturma: Groq, Gemini veya fallback story service
 - Hikayeyi veritabanina kaydetme: MongoDB Project modeli
-- En az 3 gorsel olusturma: Scene bazli image generation
-- Hikayeyi sese donusturme: macOS system TTS veya audio fallback service
+- En az 3 gorsel olusturma: Hugging Face Inference API veya SVG fallback
+- Hikayeyi sese donusturme: Edge TTS, ElevenLabs TTS, system TTS veya audio fallback service
 - Ses ve gorsellerle video olusturma: Remotion render
 - Gorsel gecis efektleri: Remotion fade/smooth zoom
 - Videoya altyazi ekleme: Remotion subtitle layer
