@@ -15,7 +15,13 @@ router.get("/status", async (_request, response, next) => {
       providers: {
         ai: env.aiProvider,
         image: env.imageProvider,
-        tts: env.ttsProvider,
+        voice: env.ttsProvider,
+        cloudflare: Boolean(env.cloudflareAccountId && env.cloudflareApiToken),
+        pollinations: Boolean(env.pollinationsApiKey),
+        huggingface: Boolean(env.huggingFaceToken),
+        stock: Boolean(env.pexelsApiKey || env.pixabayApiKey),
+        azureSpeech: Boolean(env.azureSpeechKey && env.azureSpeechRegion),
+        elevenlabs: Boolean(env.elevenLabsApiKey),
         video: "remotion"
       }
     });

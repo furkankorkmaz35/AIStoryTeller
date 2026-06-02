@@ -8,45 +8,89 @@ import { ElevenLabsClient } from "elevenlabs";
 import { EdgeTTS } from "node-edge-tts";
 import { env } from "../config/env.js";
 import { ensureProjectOutput, publicPathFor } from "../utils/paths.js";
+import type { LanguageCode } from "./storyService.js";
 
 const execFileAsync = promisify(execFile);
 
-export async function generateNarration(projectId: string, story: string) {
+const voicesByLanguage: Record<LanguageCode, { edge: string; azure: string; lang: string }> = {
+  tr: { edge: "tr-TR-EmelNeural", azure: "tr-TR-EmelNeural", lang: "tr-TR" },
+  en: { edge: "en-US-JennyNeural", azure: "en-US-JennyNeural", lang: "en-US" },
+  de: { edge: "de-DE-KatjaNeural", azure: "de-DE-KatjaNeural", lang: "de-DE" },
+  es: { edge: "es-ES-ElviraNeural", azure: "es-ES-ElviraNeural", lang: "es-ES" }
+};
+
+export async function generateNarration(projectId: string, story: string, language: LanguageCode = "tr", requestedProvider = env.ttsProvider, voiceId = "") {
   const projectDir = await ensureProjectOutput(projectId);
+  const providers = resolveVoiceProviderOrder(requestedProvider);
+  const narrationText = prepareNarrationText(story);
 
-  if (env.ttsProvider === "edge" || env.ttsProvider === "auto") {
-    const edgeAudio = await tryEdgeNarration(projectDir, story);
-    if (edgeAudio) {
-      return { audioPath: publicPathFor(projectId, edgeAudio), provider: "edge-tts" };
+  for (const provider of providers) {
+    if (provider === "azure") {
+      const azureAudio = await tryAzureNarration(projectDir, narrationText, language);
+      if (azureAudio) return { audioPath: publicPathFor(projectId, azureAudio), provider: "azure-speech" };
+    }
+    if (provider === "edge") {
+      const edgeAudio = await tryEdgeNarration(projectDir, narrationText, language);
+      if (edgeAudio) return { audioPath: publicPathFor(projectId, edgeAudio), provider: "edge-tts" };
+    }
+    if (provider === "elevenlabs") {
+      const elevenLabsAudio = await tryElevenLabsNarration(projectDir, narrationText, language, voiceId);
+      if (elevenLabsAudio) return { audioPath: publicPathFor(projectId, elevenLabsAudio), provider: "elevenlabs" };
     }
   }
 
-  if (env.ttsProvider === "elevenlabs" || env.ttsProvider === "auto") {
-    const elevenLabsAudio = await tryElevenLabsNarration(projectDir, story);
-    if (elevenLabsAudio) {
-      return { audioPath: publicPathFor(projectId, elevenLabsAudio), provider: "elevenlabs" };
-    }
-  }
-
-  if (env.ttsProvider === "system" || env.ttsProvider === "auto") {
-    const systemAudio = await trySystemNarration(projectDir, story);
-    if (systemAudio) {
-      return { audioPath: publicPathFor(projectId, systemAudio), provider: "system-tts" };
-    }
-  }
-
-  const silentFilename = "narration.wav";
-  await fs.writeFile(path.join(projectDir, silentFilename), createSilentWav(estimateDuration(story)));
+  const silentFilename = `narration-${language}.wav`;
+  await fs.writeFile(path.join(projectDir, silentFilename), createSilentWav(estimateDuration(narrationText)));
   return { audioPath: publicPathFor(projectId, silentFilename), provider: "fallback-silent-wav" };
 }
 
-async function tryEdgeNarration(projectDir: string, story: string) {
+function resolveVoiceProviderOrder(requestedProvider: string) {
+  if (requestedProvider === "azure") return ["azure", "elevenlabs"];
+  if (requestedProvider === "edge") return ["edge", "azure", "elevenlabs"];
+  if (requestedProvider === "elevenlabs") return ["elevenlabs"];
+  return ["azure", "elevenlabs"];
+}
+
+async function tryAzureNarration(projectDir: string, story: string, language: LanguageCode) {
+  if (!env.azureSpeechKey || !env.azureSpeechRegion) return null;
+  const voice = voicesByLanguage[language] ?? voicesByLanguage.tr;
   try {
-    const filename = "narration.mp3";
+    const filename = `narration-${language}-azure.mp3`;
     const outputPath = path.join(projectDir, filename);
+    const ssml = [
+      `<speak version="1.0" xml:lang="${voice.lang}" xmlns="http://www.w3.org/2001/10/synthesis">`,
+      `<voice name="${voice.azure}">`,
+      escapeXml(story.slice(0, env.edgeTtsMaxCharacters)),
+      "</voice>",
+      "</speak>"
+    ].join("");
+    const response = await fetch(`https://${env.azureSpeechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": env.azureSpeechKey,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3"
+      },
+      body: ssml
+    });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!response.ok || bytes.byteLength < 1000) throw new Error(`Azure Speech ${response.status}: ${bytes.toString("utf8").slice(0, 160)}`);
+    await fs.writeFile(outputPath, bytes);
+    return filename;
+  } catch (error) {
+    console.warn("Azure Speech failed, using next audio provider.", error);
+    return null;
+  }
+}
+
+async function tryEdgeNarration(projectDir: string, story: string, language: LanguageCode) {
+  try {
+    const filename = `narration-${language}-edge.mp3`;
+    const outputPath = path.join(projectDir, filename);
+    const voice = voicesByLanguage[language] ?? voicesByLanguage.tr;
     const tts = new EdgeTTS({
-      voice: env.edgeTtsVoice,
-      lang: env.edgeTtsLang,
+      voice: language === "tr" ? env.edgeTtsVoice : voice.edge,
+      lang: language === "tr" ? env.edgeTtsLang : voice.lang,
       outputFormat: env.edgeTtsOutputFormat,
       rate: env.edgeTtsRate,
       pitch: env.edgeTtsPitch,
@@ -63,33 +107,161 @@ async function tryEdgeNarration(projectDir: string, story: string) {
   }
 }
 
-async function tryElevenLabsNarration(projectDir: string, story: string) {
+async function tryElevenLabsNarration(projectDir: string, story: string, language: LanguageCode, voiceId = "") {
   if (!env.elevenLabsApiKey) {
     console.warn("ELEVENLABS_API_KEY is missing, using audio fallback.");
     return null;
   }
 
   try {
-    const filename = "narration.mp3";
+    const filename = `narration-${language}-elevenlabs.mp3`;
     const outputPath = path.join(projectDir, filename);
     const client = new ElevenLabsClient({ apiKey: env.elevenLabsApiKey });
-    const audioStream = await client.textToSpeech.convert(
-      env.elevenLabsVoiceId,
-      {
-        text: story.slice(0, env.elevenLabsMaxCharacters),
-        model_id: env.elevenLabsModel,
-        output_format: "mp3_44100_128"
-      },
-      { timeoutInSeconds: 120 }
-    );
-
-    await pipeline(audioStream, createWriteStream(outputPath));
-    const stats = await fs.stat(outputPath);
-    return stats.size > 1000 ? filename : null;
+    const voiceIds = uniqueVoiceIds([voiceId, env.elevenLabsVoiceId, env.elevenLabsFallbackVoiceId, "JBFqnCBsd6RMkjVDRZzb"]);
+    let lastError: unknown = null;
+    for (const candidateVoiceId of voiceIds) {
+      try {
+        await writeElevenLabsNarration(client, candidateVoiceId, story, language, projectDir, outputPath);
+        const stats = await fs.stat(outputPath);
+        return stats.size > 1000 ? filename : null;
+      } catch (error) {
+        lastError = error;
+        await fs.rm(outputPath, { force: true });
+        console.warn(`ElevenLabs voice ${candidateVoiceId} failed, trying next voice fallback.`, error);
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("All ElevenLabs voices failed.");
   } catch (error) {
     console.warn("ElevenLabs TTS failed, using audio fallback.", error);
     return null;
   }
+}
+
+async function writeElevenLabsNarration(
+  client: ElevenLabsClient,
+  voiceId: string,
+  story: string,
+  language: LanguageCode,
+  projectDir: string,
+  outputPath: string
+) {
+  const chunks = splitForTts(story, env.elevenLabsMaxCharacters);
+  if (chunks.length === 1) {
+    await writeElevenLabsChunk(client, voiceId, chunks[0], outputPath);
+  } else {
+    const partPaths: string[] = [];
+    for (const [index, chunk] of chunks.entries()) {
+      const partPath = path.join(projectDir, `narration-${language}-elevenlabs-part-${index + 1}.mp3`);
+      await writeElevenLabsChunk(client, voiceId, chunk, partPath);
+      partPaths.push(partPath);
+    }
+    await concatMp3Files(projectDir, partPaths, outputPath);
+    await Promise.all(partPaths.map((partPath) => fs.rm(partPath, { force: true })));
+  }
+}
+
+function uniqueVoiceIds(voiceIds: string[]) {
+  return [...new Set(voiceIds.map((id) => id.trim()).filter(Boolean))];
+}
+
+async function writeElevenLabsChunk(client: ElevenLabsClient, voiceId: string, text: string, outputPath: string) {
+  const audioStream = await client.textToSpeech.convert(
+    voiceId,
+    {
+      text,
+      model_id: env.elevenLabsModel,
+      output_format: "mp3_44100_128",
+      voice_settings: {
+        stability: 0.58,
+        similarity_boost: 0.78,
+        style: 0.18,
+        use_speaker_boost: true
+      }
+    },
+    { timeoutInSeconds: 120 }
+  );
+
+  await pipeline(audioStream, createWriteStream(outputPath));
+}
+
+async function concatMp3Files(projectDir: string, partPaths: string[], outputPath: string) {
+  const listPath = path.join(projectDir, `concat-${Date.now()}.txt`);
+  const listContent = partPaths.map((partPath) => `file '${escapeConcatPath(partPath)}'`).join("\n");
+  await fs.writeFile(listPath, listContent, "utf8");
+  try {
+    await execFileAsync("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", outputPath], { timeout: 120000 });
+  } finally {
+    await fs.rm(listPath, { force: true });
+  }
+}
+
+function splitForTts(text: string, maxCharacters: number) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  const limit = Math.max(800, maxCharacters - 120);
+  if (clean.length <= limit) return [clean];
+
+  const sentences = clean.match(/[^.!?。！？]+[.!?。！？]?/g) ?? [clean];
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    const next = current ? `${current} ${sentence.trim()}` : sentence.trim();
+    if (next.length <= limit) {
+      current = next;
+      continue;
+    }
+    if (current) chunks.push(current);
+    if (sentence.length > limit) {
+      chunks.push(...hardSplit(sentence.trim(), limit));
+      current = "";
+    } else {
+      current = sentence.trim();
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks.filter(Boolean);
+}
+
+function prepareNarrationText(text: string) {
+  const clean = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/#[\p{L}\p{N}_-]+/gu, " ")
+    .replace(/^\s*(sahne|scene)\s*\d+\s*[:.-]\s*/gim, " ")
+    .replace(/^\s*(hook|bağlam|baglam|detay\s*\d*|kırılma|kirilma|sonuç|sonuc|cta)\s*[:.-]\s*/gim, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return fitNarrationToShortVideo(clean || "Video anlatımı hazırlanıyor.");
+}
+
+function fitNarrationToShortVideo(text: string) {
+  const maxWords = 44;
+  const maxCharacters = 260;
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords && text.length <= maxCharacters) return text;
+
+  const sentences = text.match(/[^.!?]+[.!?]?/g) ?? [text];
+  let result = "";
+  for (const sentence of sentences) {
+    const next = `${result} ${sentence.trim()}`.trim();
+    if (next.length > maxCharacters || next.split(/\s+/).length > maxWords) break;
+    result = next;
+  }
+  if (result) return result;
+
+  return words.slice(0, maxWords).join(" ").slice(0, maxCharacters).trim();
+}
+
+function hardSplit(text: string, limit: number) {
+  const chunks: string[] = [];
+  for (let index = 0; index < text.length; index += limit) {
+    chunks.push(text.slice(index, index + limit));
+  }
+  return chunks;
+}
+
+function escapeConcatPath(value: string) {
+  return value.replaceAll("'", "'\\''");
 }
 
 async function trySystemNarration(projectDir: string, story: string) {
@@ -137,4 +309,8 @@ function createSilentWav(durationInSeconds: number): Buffer {
   buffer.writeUInt32LE(dataSize, 40);
 
   return buffer;
+}
+
+function escapeXml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }

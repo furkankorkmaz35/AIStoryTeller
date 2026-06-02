@@ -1,6 +1,6 @@
-# AI Video Generator
+# AIStoryTeller Cloud Video Studio
 
-AI Video Generator, kullanicidan aldigi tema ve stil ayarlariyla cocuklara uygun hikaye ureten, hikayeyi MongoDB'ye kaydeden, sahne gorselleri ve ses dosyasi olusturan, Remotion ile altyazili MP4 video render eden bir web uygulamasidir.
+AIStoryTeller, kullanicidan aldigi fikir ve stil ayarlariyla cok dilli sosyal medya videolari ureten bir Vue + Express uygulamasidir. Sistem local AI modeli calistirmaz; Groq/Gemini metin zekasi, cloud/free-tier gorsel ve ses servisleri, stok medya destekleri ve Remotion fallback sahneleriyle demo guvenilirligini korur.
 
 ## Teknoloji Stack'i
 
@@ -9,9 +9,11 @@ AI Video Generator, kullanicidan aldigi tema ve stil ayarlariyla cocuklara uygun
 - MongoDB + Mongoose
 - BullMQ + Redis
 - Remotion
-- Groq/Gemini + fallback story generation
-- Hugging Face Inference API image generation + fallback SVG scenes
-- Edge TTS / ElevenLabs text-to-speech + system/silent audio fallback
+- Groq/Gemini + fallback story, prompt, ceviri ve sosyal export metni
+- Cloudflare Workers AI / Pollinations / Hugging Face image generation
+- Pexels/Pixabay stok medya destekleri
+- Azure Speech / Edge TTS / ElevenLabs text-to-speech
+- Cok dilli varyant uretimi: TR, EN, DE, ES
 
 ## Kurulum
 
@@ -20,11 +22,11 @@ pnpm install
 cp .env.example .env
 ```
 
-Varsayilan hikaye modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` ve `GROQ_API_KEY` girin. Gemini kullanmak icin `AI_PROVIDER=gemini` ve `GEMINI_API_KEY` girin. `AI_PROVIDER=auto` secilirse sistem once Groq, sonra Gemini, sonra fallback dener.
+Varsayilan metin modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` veya `AI_PROVIDER=auto` ve `GROQ_API_KEY` girin. Groq, gorsel veya ses uretmez; hikaye, prompt, ceviri, caption ve hashtag icin kullanilir.
 
-Ses icin varsayilan `TTS_PROVIDER=edge` ayarlidir. Edge TTS API anahtari istemez ve varsayilan Turkce ses `tr-TR-EmelNeural` ile MP3 uretir. Farkli bir ses icin `.env` icindeki `EDGE_TTS_VOICE` degerini degistirebilirsiniz. ElevenLabs kullanmak isterseniz `TTS_PROVIDER=elevenlabs` ve `ELEVENLABS_API_KEY` girin. Ses servisleri calismazsa system TTS veya sessiz WAV fallback devreye girer.
+Ses icin varsayilan `VOICE_PROVIDER=auto` ayarlidir. Siralama: Azure Speech, Edge TTS, ElevenLabs, sessiz fallback. Azure icin `AZURE_SPEECH_KEY` ve `AZURE_SPEECH_REGION`; ElevenLabs icin `ELEVENLABS_API_KEY` girilebilir.
 
-Gorsel icin varsayilan `IMAGE_PROVIDER=huggingface` ayarlidir. Hugging Face Inference API kullanmak icin `.env` icine `HF_TOKEN` ekleyin. Varsayilan model `stabilityai/stable-diffusion-xl-base-1.0`; isterseniz `HF_IMAGE_MODEL` ile degistirebilirsiniz. Anahtar veya servis hatasi olursa sahne bazli SVG fallback uretilir ve video pipeline'i durmaz.
+Gorsel icin varsayilan `IMAGE_PROVIDER=auto` ayarlidir. Siralama: Cloudflare Workers AI, Pollinations, Hugging Face, Pexels/Pixabay, premium SVG fallback. Local ComfyUI, Stable Diffusion veya Piper calistirilmaz; cihaz yorulmaz.
 
 ## Docker Compose ile Calistirma
 
@@ -78,9 +80,10 @@ Sistem durumu: `http://localhost:4000/api/system/status`
 
 1. Web arayuzunde tema, stil, yas grubu ve sahne sayisi secilir.
 2. Express API MongoDB'de proje olusturur.
-3. BullMQ worker hikaye, gorsel, ses ve video adimlarini sirayla calistirir.
+3. BullMQ worker hikaye, prompt, ceviri, gorsel, ses, altyazi, render ve export adimlarini sirayla calistirir.
 4. Dashboard proje durumlarini ve pipeline loglarini gosterir.
-5. Proje detayinda video player, hikaye, sahneler, assetler ve MP4 indirme linki gorunur.
+5. Proje detayinda TR/EN/DE/ES dil sekmeleri, video player, caption, hashtag, sahneler ve MP4 indirme linkleri gorunur.
+6. Gorsel iyi degilse sahne kartindan sadece ilgili sahne tekrar uretilebilir.
 
 ## Final Demo Komut Sirasi
 
@@ -94,10 +97,25 @@ Sonra `http://localhost:5173` adresinden yeni proje olusturun. Web container'i `
 
 - `POST /api/projects`: Yeni video projesi olusturur ve pipeline'i baslatir.
 - `GET /api/projects`: Projeleri listeler.
-- `GET /api/projects/:id`: Proje, sahne, asset ve log detaylarini getirir.
+- `GET /api/projects/:id`: Proje, sahne, asset, varyant ve log detaylarini getirir.
+- `GET /api/projects/:id/export`: Dil bazli sosyal medya export paketini getirir.
 - `POST /api/projects/:id/retry`: Projeyi yeniden BullMQ pipeline'ina alir.
+- `POST /api/projects/:id/scenes/:sceneId/regenerate`: Sadece secili sahne gorselini tekrar uretir.
 - `GET /api/projects/:id/events`: Pipeline loglarini getirir.
 - `GET /api/system/status`: MongoDB, BullMQ queue ve aktif provider durumlarini getirir.
+
+## Otopilot Akisi
+
+Otopilot bolumu konsept bazli sosyal medya operasyonu icindir. API key yoksa fallback fikirler uretir; Groq key varsa trend/konsept uyumu daha akilli skorlanir.
+
+- `POST /api/autopilot/accounts`: Instagram/TikTok/YouTube konsept hesabi olusturur.
+- `GET /api/autopilot/accounts`: Otopilot hesaplarini listeler.
+- `POST /api/autopilot/accounts/:id/generate-ideas`: Konsepte uygun fikirleri skorlayip takvime alir.
+- `GET /api/autopilot/ideas`: Fikir listesini getirir.
+- `POST /api/autopilot/ideas/:id/approve`: Fikri onaylar.
+- `POST /api/autopilot/ideas/:id/reject`: Fikri reddeder.
+- `POST /api/autopilot/ideas/:id/produce`: Fikri video pipeline'ina aktarir.
+- `POST /api/autopilot/run-due`: Zamanı gelmis ve onaylanmis fikirleri uretime alir.
 
 ## Sunum Icin Hizli Kontrol
 
@@ -107,15 +125,15 @@ pnpm build
 curl http://localhost:4000/api/system/status
 ```
 
-Demo guvenilirligi icin `.env` icinde `AI_PROVIDER=fallback`, `IMAGE_PROVIDER=fallback` ve `TTS_PROVIDER=fallback` kullanilabilir. Bu modda internet veya API anahtari olmasa bile video pipeline'i tamamlanir.
+Demo guvenilirligi icin API key olmasa bile fallback akisi korunur. Cloud servisleri calismazsa gorsel icin premium SVG sahneler, ses icin sessiz WAV fallback devreye girer ve pipeline tamamlanmaya calisir.
 
 ## Ders Isterleri
 
 - LLM ile prompt/hikaye olusturma: Groq, Gemini veya fallback story service
 - Hikayeyi veritabanina kaydetme: MongoDB Project modeli
-- En az 3 gorsel olusturma: Hugging Face Inference API veya SVG fallback
-- Hikayeyi sese donusturme: Edge TTS, ElevenLabs TTS, system TTS veya audio fallback service
-- Ses ve gorsellerle video olusturma: Remotion render
+- En az 3 gorsel olusturma: Cloud/free image providers, stok medya veya SVG fallback
+- Hikayeyi sese donusturme: Azure Speech, Edge TTS, ElevenLabs veya audio fallback
+- Ses ve gorsellerle video olusturma: Remotion render, dil bazli MP4 varyantlari
 - Gorsel gecis efektleri: Remotion fade/smooth zoom
 - Videoya altyazi ekleme: Remotion subtitle layer
 - Scrum board/story point: `SCRUM_BOARD.md`

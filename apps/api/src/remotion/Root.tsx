@@ -8,12 +8,15 @@ const defaultProps: VideoProps = {
   story: "",
   audioPath: "",
   apiBaseUrl: "http://localhost:4000",
+  aspectRatio: "9:16",
+  language: "tr",
+  sceneDurationInFrames: 132,
   scenes: [
     {
       text: "Demo sahnesi",
       subtitle: "Demo sahnesi",
-      imagePath: "",
-      }
+      imagePath: ""
+    }
   ]
 };
 
@@ -24,8 +27,8 @@ export function RemotionRoot() {
       component={AiVideo}
       durationInFrames={450}
       fps={30}
-      width={1280}
-      height={720}
+      width={1080}
+      height={1920}
       defaultProps={defaultProps}
     />
   );

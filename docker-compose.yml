@@ -33,7 +33,8 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
-      TTS_PROVIDER: ${TTS_PROVIDER:-edge}
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-auto}
+      TTS_PROVIDER: ${TTS_PROVIDER:-auto}
       EDGE_TTS_VOICE: ${EDGE_TTS_VOICE:-tr-TR-EmelNeural}
       EDGE_TTS_LANG: ${EDGE_TTS_LANG:-tr-TR}
       EDGE_TTS_OUTPUT_FORMAT: ${EDGE_TTS_OUTPUT_FORMAT:-audio-24khz-48kbitrate-mono-mp3}
@@ -45,12 +46,20 @@ services:
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-JBFqnCBsd6RMkjVDRZzb}
       ELEVENLABS_MODEL: ${ELEVENLABS_MODEL:-eleven_multilingual_v2}
       ELEVENLABS_MAX_CHARACTERS: ${ELEVENLABS_MAX_CHARACTERS:-4500}
-      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-huggingface}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-auto}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_IMAGE_MODEL: ${CLOUDFLARE_IMAGE_MODEL:-@cf/stabilityai/stable-diffusion-xl-base-1.0}
+      POLLINATIONS_API_KEY: ${POLLINATIONS_API_KEY:-}
       HF_TOKEN: ${HF_TOKEN:-}
       HF_IMAGE_MODEL: ${HF_IMAGE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}
       HF_INFERENCE_BASE_URL: ${HF_INFERENCE_BASE_URL:-https://api-inference.huggingface.co/models}
       HF_IMAGE_STEPS: ${HF_IMAGE_STEPS:-25}
       HF_GUIDANCE_SCALE: ${HF_GUIDANCE_SCALE:-7.5}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       OUTPUTS_DIR: /app/outputs
     ports:
       - "4000:4000"
@@ -61,7 +70,6 @@ services:
       - .:/app
       - /app/node_modules
       - /app/apps/api/node_modules
-      - /app/apps/api/dist     
       - ./outputs:/app/outputs
 
   worker:
@@ -79,7 +87,8 @@ services:
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
-      TTS_PROVIDER: ${TTS_PROVIDER:-edge}
+      VOICE_PROVIDER: ${VOICE_PROVIDER:-auto}
+      TTS_PROVIDER: ${TTS_PROVIDER:-auto}
       EDGE_TTS_VOICE: ${EDGE_TTS_VOICE:-tr-TR-EmelNeural}
       EDGE_TTS_LANG: ${EDGE_TTS_LANG:-tr-TR}
       EDGE_TTS_OUTPUT_FORMAT: ${EDGE_TTS_OUTPUT_FORMAT:-audio-24khz-48kbitrate-mono-mp3}
@@ -91,12 +100,20 @@ services:
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-JBFqnCBsd6RMkjVDRZzb}
       ELEVENLABS_MODEL: ${ELEVENLABS_MODEL:-eleven_multilingual_v2}
       ELEVENLABS_MAX_CHARACTERS: ${ELEVENLABS_MAX_CHARACTERS:-4500}
-      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-huggingface}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-auto}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_IMAGE_MODEL: ${CLOUDFLARE_IMAGE_MODEL:-@cf/stabilityai/stable-diffusion-xl-base-1.0}
+      POLLINATIONS_API_KEY: ${POLLINATIONS_API_KEY:-}
       HF_TOKEN: ${HF_TOKEN:-}
       HF_IMAGE_MODEL: ${HF_IMAGE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}
       HF_INFERENCE_BASE_URL: ${HF_INFERENCE_BASE_URL:-https://api-inference.huggingface.co/models}
       HF_IMAGE_STEPS: ${HF_IMAGE_STEPS:-25}
       HF_GUIDANCE_SCALE: ${HF_GUIDANCE_SCALE:-7.5}
+      PEXELS_API_KEY: ${PEXELS_API_KEY:-}
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       OUTPUTS_DIR: /app/outputs
     depends_on:
       - api
@@ -106,7 +123,6 @@ services:
       - .:/app
       - /app/node_modules
       - /app/apps/api/node_modules
-      - /app/apps/api/dist     
       - ./outputs:/app/outputs
 
   web:
