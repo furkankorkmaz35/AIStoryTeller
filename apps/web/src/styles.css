@@ -499,8 +499,6 @@ input:focus {
 
 .switch-row {
   margin: auto 0 18px;
-}{
-
 }
 
 .switch-row small{
@@ -703,6 +701,7 @@ input:focus {
   line-height: 1.14;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .project-card p {
@@ -713,6 +712,7 @@ input:focus {
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .project-meta {
