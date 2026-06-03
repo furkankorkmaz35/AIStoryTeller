@@ -4,17 +4,18 @@ import type { VideoProps } from "./types";
 
 const fallbackSceneDuration = 132;
 
-export function AiVideo({ title, scenes, audioPath, apiBaseUrl, subtitlesEnabled = true, sceneDurationInFrames = fallbackSceneDuration }: VideoProps) {
+export function AiVideo({ title, scenes, audioPath, apiBaseUrl, subtitlesEnabled = true, sceneDurationInFrames = fallbackSceneDuration, sceneDurationsInFrames = [] }: VideoProps) {
   const frame = useCurrentFrame();
   const intro = interpolate(frame, [0, 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const titleFade = interpolate(frame, [0, 24, 78, 108], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const sceneTimings = buildSceneTimings(scenes.length, sceneDurationInFrames, sceneDurationsInFrames);
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#20242d", fontFamily: "Inter, Arial, sans-serif" }}>
       {audioPath ? <Audio src={`${apiBaseUrl}${audioPath}`} /> : null}
       {scenes.map((scene, index) => (
-        <Sequence key={index} from={index * sceneDurationInFrames} durationInFrames={sceneDurationInFrames}>
-          <SceneFrame scene={scene} index={index} apiBaseUrl={apiBaseUrl} subtitlesEnabled={subtitlesEnabled} sceneDuration={sceneDurationInFrames} />
+        <Sequence key={index} from={sceneTimings[index].from} durationInFrames={sceneTimings[index].duration}>
+          <SceneFrame scene={scene} index={index} apiBaseUrl={apiBaseUrl} subtitlesEnabled={subtitlesEnabled} sceneDuration={sceneTimings[index].duration} />
         </Sequence>
       ))}
       <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -39,6 +40,16 @@ export function AiVideo({ title, scenes, audioPath, apiBaseUrl, subtitlesEnabled
   );
 }
 
+function buildSceneTimings(sceneCount: number, fallbackDuration: number, sceneDurations: number[]) {
+  let cursor = 0;
+  return Array.from({ length: sceneCount }, (_, index) => {
+    const duration = Math.max(72, Math.round(sceneDurations[index] || fallbackDuration));
+    const timing = { from: cursor, duration };
+    cursor += duration;
+    return timing;
+  });
+}
+
 function SceneFrame({
   scene,
   index,
@@ -56,8 +67,9 @@ function SceneFrame({
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 22, stiffness: 92, mass: 0.95 } });
   const opacity = interpolate(frame, [0, 14, sceneDuration - 18, sceneDuration], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const reveal = interpolate(frame, [0, 18], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const direction = index % 4;
-  const scale = interpolate(frame, [0, sceneDuration], direction % 2 === 0 ? [1.05, 1.15] : [1.15, 1.06], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const scale = interpolate(frame, [0, sceneDuration], direction % 2 === 0 ? [1.07, 1.18] : [1.16, 1.07], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const panX = interpolate(frame, [0, sceneDuration], direction === 0 ? [-24, 22] : direction === 1 ? [20, -20] : direction === 2 ? [-8, 12] : [12, -8], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp"
@@ -72,7 +84,7 @@ function SceneFrame({
   const progressWidth = interpolate(frame, [0, sceneDuration], [0, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const captionText = scene.subtitle || scene.text;
   const captionLines = splitCaption(captionText);
-  const fontSize = captionText.length > 66 ? 30 : 34;
+  const fontSize = captionText.length > 66 ? 31 : 36;
   const lineHeight = captionText.length > 66 ? 1.16 : 1.12;
   const subtitleBottom = index % 3 === 1 ? 128 : 92;
 
@@ -82,7 +94,7 @@ function SceneFrame({
         <OffthreadVideo
           src={scene.videoPath.startsWith("/outputs") ? `${apiBaseUrl}${scene.videoPath}` : staticFile(scene.videoPath)}
           muted
-          style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(1.03) translate3d(${panX * 0.35}px, ${panY * 0.35}px, 0)` }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(1.045) translate3d(${panX * 0.35}px, ${panY * 0.35}px, 0)` }}
         />
       ) : (
         <Img
@@ -90,10 +102,11 @@ function SceneFrame({
           style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale}) translate3d(${panX}px, ${panY}px, 0)` }}
         />
       )}
-      <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 48%, transparent 35%, rgba(2,6,23,.22) 72%, rgba(2,6,23,.58) 100%)" }} />
-      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(18,22,29,.5) 0%, rgba(32,36,45,.05) 43%, rgba(15,23,42,.72) 100%)" }} />
+      <AbsoluteFill style={{ background: "radial-gradient(circle at 50% 46%, transparent 35%, rgba(2,6,23,.20) 72%, rgba(2,6,23,.62) 100%)" }} />
+      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(18,22,29,.42) 0%, rgba(32,36,45,.04) 40%, rgba(15,23,42,.78) 100%)" }} />
       <AbsoluteFill style={{ background: "linear-gradient(90deg, rgba(148,163,184,.1), transparent 38%, rgba(14,165,233,.09))" }} />
-      <AbsoluteFill style={{ opacity: 0.12, backgroundImage: "radial-gradient(rgba(255,255,255,.26) 1px, transparent 1px)", backgroundSize: "6px 6px", mixBlendMode: "overlay" }} />
+      <AbsoluteFill style={{ opacity: 0.11, backgroundImage: "radial-gradient(rgba(255,255,255,.32) 1px, transparent 1px)", backgroundSize: "5px 5px", mixBlendMode: "overlay" }} />
+      <AbsoluteFill style={{ opacity: reveal * 0.55, background: "linear-gradient(90deg, rgba(248,250,252,.38), rgba(125,211,252,.16), transparent)", mixBlendMode: "screen" }} />
       <AbsoluteFill
         style={{
           background: `linear-gradient(105deg, transparent ${sweep - 10}%, rgba(255,255,255,.16) ${sweep}%, transparent ${sweep + 10}%)`,
@@ -153,17 +166,17 @@ function SceneFrame({
             left: 58,
             right: 58,
             bottom: subtitleBottom,
-            padding: "17px 21px 18px",
-            borderRadius: 16,
+            padding: "18px 22px 19px",
+            borderRadius: 18,
             opacity: captionOpacity,
             transform: `translateY(${captionY}px)`,
-            background: "linear-gradient(135deg, rgba(15,18,25,.62), rgba(30,41,59,.42))",
-            border: "1px solid rgba(226,232,240,.13)",
-            boxShadow: "0 22px 58px rgba(2,6,23,.34), inset 0 1px 0 rgba(255,255,255,.06)",
+            background: "linear-gradient(135deg, rgba(8,13,22,.72), rgba(30,41,59,.46))",
+            border: "1px solid rgba(226,232,240,.16)",
+            boxShadow: "0 26px 68px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.08)",
             backdropFilter: "blur(14px)"
           }}
         >
-          <div style={{ color: "#F8FAFC", fontSize, lineHeight, fontWeight: 900, textShadow: "0 12px 34px rgba(2,6,23,.42)" }}>
+          <div style={{ color: "#F8FAFC", fontSize, lineHeight, fontWeight: 920, letterSpacing: 0, textShadow: "0 12px 34px rgba(2,6,23,.46)" }}>
             {captionLines.map((line) => (
               <div key={line}>{line}</div>
             ))}

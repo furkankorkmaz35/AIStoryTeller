@@ -37,6 +37,7 @@ export type Project = {
   imageQuality: string;
   status: ProjectStatus;
   errorMessage?: string;
+  thumbnailPath?: string;
   videoPath?: string;
   createdAt: string;
 };

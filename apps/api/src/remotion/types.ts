@@ -14,6 +14,7 @@ export type VideoProps = {
   apiBaseUrl: string;
   subtitlesEnabled?: boolean;
   sceneDurationInFrames?: number;
+  sceneDurationsInFrames?: number[];
   aspectRatio?: "9:16" | "16:9" | "1:1";
   language?: string;
 };

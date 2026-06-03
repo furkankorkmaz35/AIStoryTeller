@@ -34,6 +34,7 @@ const loading = ref(false);
 const creating = ref(false);
 const regeneratingSceneId = ref("");
 const importingSceneId = ref("");
+const galleryPage = ref(1);
 const error = ref("");
 const apiError = ref("");
 const systemStatus = ref<SystemStatus | null>(null);
@@ -144,6 +145,12 @@ let pollTimer: number | undefined;
 const selectedVariant = computed(() => selected.value?.variants.find((variant) => variant.language === activeLanguage.value) ?? selected.value?.variants[0] ?? null);
 const selectedVideo = computed(() => selectedVariant.value?.videoPath ?? selected.value?.project.videoPath ?? "");
 const selectedAudio = computed(() => selectedVariant.value?.audioPath ?? "");
+const galleryPageSize = 4;
+const galleryPageCount = computed(() => Math.max(1, Math.ceil(projects.value.length / galleryPageSize)));
+const pagedProjects = computed(() => {
+  const start = (galleryPage.value - 1) * galleryPageSize;
+  return projects.value.slice(start, start + galleryPageSize);
+});
 const completedCount = computed(() => projects.value.filter((project) => project.status === "completed").length);
 const activeCount = computed(() => projects.value.filter((project) => !["completed", "failed"].includes(project.status)).length);
 const totalSceneCount = computed(() => projects.value.reduce((total, project) => total + project.sceneCount, 0));
@@ -227,6 +234,7 @@ async function refreshProjects() {
   try {
     apiError.value = "";
     projects.value = await listProjects();
+    galleryPage.value = Math.min(galleryPage.value, galleryPageCount.value);
     if (!selected.value && projects.value[0]) {
       await selectProject(projects.value[0]._id);
     } else if (selected.value) {
@@ -235,6 +243,10 @@ async function refreshProjects() {
   } catch (refreshError) {
     apiError.value = refreshError instanceof Error ? refreshError.message : "API bağlantısı kurulamadı.";
   }
+}
+
+function changeGalleryPage(direction: -1 | 1) {
+  galleryPage.value = Math.min(galleryPageCount.value, Math.max(1, galleryPage.value + direction));
 }
 
 async function refreshSystemStatus() {
@@ -818,7 +830,7 @@ onUnmounted(() => {
             <textarea v-model="form.theme" rows="5" placeholder="Ne üretmek istiyorsun? Örnek: A curious cat and a friendly dog find a hidden sunny bay by canoe." />
           </label>
 
-          <div class="preset-row">
+          <div v-if="false" class="preset-row">
             <button v-for="preset in promptPresets" :key="preset" type="button" @click="usePreset(preset)">
               <Sparkles :size="14" />
               {{ preset }}
@@ -1001,22 +1013,37 @@ onUnmounted(() => {
             <span>İlk fikrini yazıp oluşturmayı başlat.</span>
           </div>
           <div
-            v-for="project in projects"
+            v-for="project in pagedProjects"
             :key="project._id"
             class="project-card depth-card"
             :class="{ selected: selected?.project._id === project._id }"
             @click="selectProject(project._id)"
           >
-            <div>
+            <div v-if="project.thumbnailPath" class="project-thumb">
+              <img :src="assetUrl(project.thumbnailPath)" :alt="project.title" />
+            </div>
+            <div v-else class="project-thumb empty-thumb">
+              <Film :size="18" />
+            </div>
+            <div class="project-card-copy">
               <span class="status-badge">{{ statusLabel(project.status) }}</span>
               <h3>{{ project.title }}</h3>
-            </div>
-            <div class="project-meta compact">
-              <small>{{ new Date(project.createdAt).toLocaleDateString("tr-TR") }}</small>
+              <div class="project-meta compact">
+                <small>{{ new Date(project.createdAt).toLocaleDateString("tr-TR") }}</small>
+              </div>
             </div>
             <div class="project-progress">
               <span :style="{ width: `${projectProgress(project.status)}%` }"></span>
             </div>
+          </div>
+          <div v-if="projects.length > galleryPageSize" class="gallery-pager depth-card">
+            <button type="button" :disabled="galleryPage === 1" @click="changeGalleryPage(-1)">
+              Önceki
+            </button>
+            <span>{{ galleryPage }} / {{ galleryPageCount }}</span>
+            <button type="button" :disabled="galleryPage === galleryPageCount" @click="changeGalleryPage(1)">
+              Sonraki
+            </button>
           </div>
         </section>
       </section>

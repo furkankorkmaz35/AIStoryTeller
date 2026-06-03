@@ -64,8 +64,11 @@ router.post("/", async (request, response, next) => {
 
 router.get("/", async (_request, response, next) => {
   try {
-    const projects = await ProjectModel.find().sort({ createdAt: -1 }).limit(50);
-    response.json(projects);
+    const projects = await ProjectModel.find().sort({ createdAt: -1 }).limit(50).lean();
+    const projectIds = projects.map((project) => project._id);
+    const firstScenes = await SceneModel.find({ projectId: { $in: projectIds }, order: 1, imagePath: { $ne: "" } }).select("projectId imagePath").lean();
+    const thumbnails = new Map(firstScenes.map((scene) => [String(scene.projectId), scene.imagePath]));
+    response.json(projects.map((project) => ({ ...project, thumbnailPath: project.thumbnailPath || thumbnails.get(String(project._id)) || "" })));
   } catch (error) {
     next(error);
   }

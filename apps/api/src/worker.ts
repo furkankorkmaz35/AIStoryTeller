@@ -9,7 +9,7 @@ import { SceneModel } from "./models/scene.js";
 import { AssetModel } from "./models/asset.js";
 import { buildVisualProfile, generateExportCopy, generateLanguageVariants, generateScenePlans, generateStory, supportedLanguages, type LanguageCode } from "./services/storyService.js";
 import { generateSceneMaterial } from "./services/imageService.js";
-import { generateNarration } from "./services/audioService.js";
+import { generateSceneNarration } from "./services/audioService.js";
 import { renderProjectVideo } from "./services/videoService.js";
 import { logJob } from "./services/jobLog.js";
 import { ensureProjectOutput, publicPathFor } from "./utils/paths.js";
@@ -113,7 +113,7 @@ const worker = new Worker(
           const generated = await generateSceneMaterial(
             projectId,
             scene.order,
-            scene.text,
+            `${project.theme}\nScene ${scene.order}: ${scene.text}`,
             project.style,
             {
               summary: scene.text.slice(0, 140),
@@ -133,6 +133,9 @@ const worker = new Worker(
           scene.materialQualityReason = generated.metadata.qualityReason;
           scene.status = "material-ready";
           await scene.save();
+          if (scene.order === 1) {
+            await ProjectModel.findByIdAndUpdate(projectId, { thumbnailPath: generated.imagePath });
+          }
           await AssetModel.create({
             projectId,
             sceneId: scene._id,
@@ -156,19 +159,27 @@ const worker = new Worker(
         await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_audio" });
         await logJob(projectId, "audio", "running", "Seçilen ElevenLabs sesiyle anlatım hazırlanıyor.");
         const project = await ProjectModel.findById(projectId).orFail();
+        const scenes = await SceneModel.find({ projectId }).sort({ order: 1 });
         const variants = await ProjectVariantModel.find({ projectId }).sort({ language: 1 });
         await AssetModel.deleteMany({ projectId, type: "audio" });
         for (const variant of variants) {
           variant.status = "audio";
           await variant.save();
-          const generated = await generateNarration(
+          const translatedScenes = Array.isArray(variant.metadata?.scenes) ? (variant.metadata.scenes as string[]) : [];
+          const sceneNarrationTexts = scenes.map((scene) => translatedScenes[scene.order - 1] || scene.subtitle || scene.text);
+          const generated = await generateSceneNarration(
             projectId,
-            variant.story || project.story,
+            sceneNarrationTexts,
             variant.language as LanguageCode,
             project.voiceProvider,
             project.elevenLabsVoiceId
           );
           variant.audioPath = generated.audioPath;
+          variant.metadata = {
+            ...(variant.metadata || {}),
+            sceneAudioDurations: generated.sceneDurationsSeconds,
+            sceneNarrationTexts: sceneNarrationTexts.map((text) => cleanNarrationLine(text))
+          };
           await variant.save();
           await AssetModel.create({ projectId, type: "audio", path: generated.audioPath, provider: generated.provider, metadata: { language: variant.language } });
           await logJob(projectId, "audio", "completed", `${variant.language}: ${generated.provider} ses dosyası hazır.`);
@@ -195,7 +206,7 @@ const worker = new Worker(
           const filename = `subtitles-${variant.language}.json`;
           await fs.writeFile(
             path.join(projectDir, filename),
-            JSON.stringify({ language: variant.language, story: variant.story, scenes: variant.metadata?.scenes ?? [] }, null, 2),
+            JSON.stringify({ language: variant.language, story: variant.story, scenes: variant.metadata?.sceneNarrationTexts ?? variant.metadata?.scenes ?? [] }, null, 2),
             "utf8"
           );
           await AssetModel.create({ projectId, type: "subtitle", path: publicPathFor(projectId, filename), provider: "generated", metadata: { language: variant.language } });
@@ -221,6 +232,8 @@ const worker = new Worker(
           variant.status = "rendering";
           await variant.save();
           const translatedScenes = Array.isArray(variant.metadata?.scenes) ? (variant.metadata.scenes as string[]) : [];
+          const sceneNarrationTexts = Array.isArray(variant.metadata?.sceneNarrationTexts) ? (variant.metadata.sceneNarrationTexts as string[]) : [];
+          const sceneAudioDurations = Array.isArray(variant.metadata?.sceneAudioDurations) ? (variant.metadata.sceneAudioDurations as number[]) : [];
           const videoPath = await renderProjectVideo(
             projectId,
             {
@@ -230,9 +243,10 @@ const worker = new Worker(
               aspectRatio: project.aspectRatio,
               language: variant.language,
               subtitlesEnabled: project.subtitlesEnabled,
+              sceneDurationsInFrames: sceneAudioDurations.map((seconds) => Math.ceil((Number(seconds) + 0.42) * 30)),
               scenes: scenes.map((scene) => ({
                 text: scene.text,
-                subtitle: shortSubtitle(translatedScenes[scene.order - 1] || scene.subtitle || scene.text),
+                subtitle: shortSubtitle(sceneNarrationTexts[scene.order - 1] || translatedScenes[scene.order - 1] || scene.subtitle || scene.text),
                 imagePath: scene.imagePath,
                 videoPath: scene.videoPath,
                 materialType: scene.materialType
@@ -311,6 +325,20 @@ function shortSubtitle(value: string) {
   const cut = withoutSceneLabel.slice(0, 82);
   const breakPoint = Math.max(cut.lastIndexOf(" "), 48);
   return `${cut.slice(0, breakPoint).trim()}...`;
+}
+
+function buildNarrationScript(values: string[]) {
+  const script = values.map((value) => cleanNarrationLine(value)).filter(Boolean).join(". ");
+  if (!script) return "Video anlatımı hazırlanıyor.";
+  return /[.!?]$/.test(script) ? script : `${script}.`;
+}
+
+function cleanNarrationLine(value: string) {
+  return value
+    .replace(/^\s*(sahne|scene)\s*\d+\s*[:.-]?\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.!?]+$/g, "");
 }
 
 worker.on("ready", () => console.log("Video worker ready."));

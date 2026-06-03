@@ -44,6 +44,27 @@ export async function generateNarration(projectId: string, story: string, langua
   return { audioPath: publicPathFor(projectId, silentFilename), provider: "fallback-silent-wav" };
 }
 
+export async function generateSceneNarration(projectId: string, sceneTexts: string[], language: LanguageCode = "tr", requestedProvider = env.ttsProvider, voiceId = "") {
+  const projectDir = await ensureProjectOutput(projectId);
+  const cleanedScenes = sceneTexts.map(prepareSceneNarrationText).filter(Boolean);
+  const safeScenes = cleanedScenes.length ? cleanedScenes : ["Video anlatımı hazırlanıyor."];
+  const providers = resolveVoiceProviderOrder(requestedProvider);
+
+  for (const provider of providers) {
+    if (provider === "elevenlabs") {
+      const elevenLabsAudio = await tryElevenLabsSceneNarration(projectDir, safeScenes, language, voiceId);
+      if (elevenLabsAudio) return { audioPath: publicPathFor(projectId, elevenLabsAudio.filename), provider: "elevenlabs", sceneDurationsSeconds: elevenLabsAudio.sceneDurationsSeconds };
+    }
+  }
+
+  const joined = safeScenes.join(" ");
+  const fallback = await generateNarration(projectId, joined, language, requestedProvider, voiceId);
+  return {
+    ...fallback,
+    sceneDurationsSeconds: estimateSceneDurationsFromText(safeScenes)
+  };
+}
+
 function resolveVoiceProviderOrder(requestedProvider: string) {
   if (requestedProvider === "azure") return ["azure", "elevenlabs"];
   if (requestedProvider === "edge") return ["edge", "azure", "elevenlabs"];
@@ -123,7 +144,9 @@ async function tryElevenLabsNarration(projectDir: string, story: string, languag
       try {
         await writeElevenLabsNarration(client, candidateVoiceId, story, language, projectDir, outputPath);
         const stats = await fs.stat(outputPath);
-        return stats.size > 1000 ? filename : null;
+        const duration = await getAudioDurationSeconds(outputPath);
+        if (stats.size > 1000 && duration >= estimateMinimumAudioSeconds(story)) return filename;
+        throw new Error(`ElevenLabs audio too short: ${duration.toFixed(2)}s for ${story.length} chars.`);
       } catch (error) {
         lastError = error;
         await fs.rm(outputPath, { force: true });
@@ -158,6 +181,52 @@ async function writeElevenLabsNarration(
     await concatMp3Files(projectDir, partPaths, outputPath);
     await Promise.all(partPaths.map((partPath) => fs.rm(partPath, { force: true })));
   }
+}
+
+async function tryElevenLabsSceneNarration(projectDir: string, scenes: string[], language: LanguageCode, voiceId = "") {
+  if (!env.elevenLabsApiKey) {
+    console.warn("ELEVENLABS_API_KEY is missing, using audio fallback.");
+    return null;
+  }
+
+  const filename = `narration-${language}-elevenlabs.mp3`;
+  const outputPath = path.join(projectDir, filename);
+  const client = new ElevenLabsClient({ apiKey: env.elevenLabsApiKey });
+  const voiceIds = uniqueVoiceIds([voiceId, env.elevenLabsVoiceId, env.elevenLabsFallbackVoiceId, "JBFqnCBsd6RMkjVDRZzb"]);
+  let lastError: unknown = null;
+
+  for (const candidateVoiceId of voiceIds) {
+    const partPaths: string[] = [];
+    try {
+      const sceneDurationsSeconds: number[] = [];
+      for (const [index, scene] of scenes.entries()) {
+        const partPath = path.join(projectDir, `narration-${language}-scene-${index + 1}.mp3`);
+        await writeElevenLabsChunk(client, candidateVoiceId, scene, partPath);
+        const stats = await fs.stat(partPath);
+        const duration = await getAudioDurationSeconds(partPath);
+        if (stats.size < 1000 || duration < estimateMinimumAudioSeconds(scene)) {
+          throw new Error(`ElevenLabs scene ${index + 1} too short: ${duration.toFixed(2)}s for "${scene}".`);
+        }
+        partPaths.push(partPath);
+        sceneDurationsSeconds.push(duration);
+      }
+      await concatMp3Files(projectDir, partPaths, outputPath);
+      await Promise.all(partPaths.map((partPath) => fs.rm(partPath, { force: true })));
+      const finalDuration = await getAudioDurationSeconds(outputPath);
+      if (finalDuration >= Math.max(2.4, sceneDurationsSeconds.reduce((total, value) => total + value, 0) - 0.35)) {
+        return { filename, sceneDurationsSeconds };
+      }
+      throw new Error(`ElevenLabs concatenated audio too short: ${finalDuration.toFixed(2)}s.`);
+    } catch (error) {
+      lastError = error;
+      await Promise.all(partPaths.map((partPath) => fs.rm(partPath, { force: true })));
+      await fs.rm(outputPath, { force: true });
+      console.warn(`ElevenLabs scene voice ${candidateVoiceId} failed, trying next voice fallback.`, error);
+    }
+  }
+
+  console.warn("ElevenLabs scene TTS failed, using audio fallback.", lastError);
+  return null;
 }
 
 function uniqueVoiceIds(voiceIds: string[]) {
@@ -234,11 +303,34 @@ function prepareNarrationText(text: string) {
   return fitNarrationToShortVideo(clean || "Video anlatımı hazırlanıyor.");
 }
 
+function prepareSceneNarrationText(text: string) {
+  const clean = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/#[\p{L}\p{N}_-]+/gu, " ")
+    .replace(/^\s*(sahne|scene)\s*\d+\s*[:.-]\s*/gim, " ")
+    .replace(/^\s*(hook|bağlam|baglam|detay\s*\d*|kırılma|kirilma|sonuç|sonuc|cta)\s*[:.-]\s*/gim, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return ensureSentenceEnding(limitSceneNarration(clean || "Video sahnesi başlıyor."));
+}
+
+function limitSceneNarration(text: string) {
+  const maxWords = 13;
+  const maxCharacters = 92;
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords && text.length <= maxCharacters) return text;
+  return words.slice(0, maxWords).join(" ").slice(0, maxCharacters).trim();
+}
+
+function estimateSceneDurationsFromText(scenes: string[]) {
+  return scenes.map((scene) => clamp(scene.split(/\s+/).filter(Boolean).length * 0.38 + 0.55, 2.4, 6.8));
+}
+
 function fitNarrationToShortVideo(text: string) {
   const maxWords = 44;
   const maxCharacters = 260;
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords && text.length <= maxCharacters) return text;
+  if (words.length <= maxWords && text.length <= maxCharacters) return ensureSentenceEnding(text);
 
   const sentences = text.match(/[^.!?]+[.!?]?/g) ?? [text];
   let result = "";
@@ -247,9 +339,71 @@ function fitNarrationToShortVideo(text: string) {
     if (next.length > maxCharacters || next.split(/\s+/).length > maxWords) break;
     result = next;
   }
-  if (result) return result;
+  if (result) return ensureSentenceEnding(result);
 
-  return words.slice(0, maxWords).join(" ").slice(0, maxCharacters).trim();
+  return ensureSentenceEnding(words.slice(0, maxWords).join(" ").slice(0, maxCharacters).trim());
+}
+
+async function fitAudioToVideoTiming(projectDir: string, filename: string, language: LanguageCode) {
+  const inputPath = path.join(projectDir, filename);
+  const duration = await getAudioDurationSeconds(inputPath);
+  const targetSeconds = 17.2;
+  if (!duration || duration >= targetSeconds - 0.6) return filename;
+
+  const outputFilename = `narration-${language}-synced.mp3`;
+  const outputPath = path.join(projectDir, outputFilename);
+  const tempo = clamp(duration / targetSeconds, 0.55, 0.96);
+  const stretchedDuration = duration / tempo;
+  const padSeconds = Math.max(0.25, targetSeconds - stretchedDuration);
+  const filter = `atempo=${tempo.toFixed(3)},apad=pad_dur=${padSeconds.toFixed(2)},loudnorm=I=-16:TP=-1.5:LRA=11`;
+
+  try {
+    await execFileAsync(
+      "ffmpeg",
+      ["-y", "-i", inputPath, "-filter:a", filter, "-t", targetSeconds.toFixed(2), "-c:a", "libmp3lame", "-b:a", "160k", outputPath],
+      { timeout: 120000 }
+    );
+    const stats = await fs.stat(outputPath);
+    if (stats.size > 1000) return outputFilename;
+  } catch (error) {
+    console.warn(`${language}: audio timing stretch failed; using original narration.`, error);
+  }
+
+  await fs.rm(outputPath, { force: true });
+  return filename;
+}
+
+async function getAudioDurationSeconds(filePath: string) {
+  try {
+    const { stdout } = await execFileAsync("ffprobe", [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      filePath
+    ]);
+    const duration = Number(String(stdout).trim());
+    return Number.isFinite(duration) ? duration : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function estimateMinimumAudioSeconds(text: string) {
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(2.2, words * 0.18);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function ensureSentenceEnding(text: string) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return clean;
+  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
 }
 
 function hardSplit(text: string, limit: number) {

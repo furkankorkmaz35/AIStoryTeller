@@ -555,9 +555,9 @@ h1 {
 
 .creator-grid {
   display: grid;
-  grid-template-columns: minmax(420px, 620px) minmax(280px, 1fr);
+  grid-template-columns: minmax(360px, .95fr) minmax(360px, 1.05fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .notice-card {
@@ -626,6 +626,9 @@ h1 {
 }
 
 .composer-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
   overflow: hidden;
 }
 
@@ -713,13 +716,17 @@ input {
 }
 
 .prompt-box {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   position: relative;
   z-index: 1;
 }
 
 .prompt-box textarea {
-  min-height: 168px;
-  resize: vertical;
+  flex: 1;
+  min-height: 210px;
+  resize: none;
   line-height: 1.55;
   font-size: 15px;
   background: linear-gradient(135deg, rgba(17, 24, 39, .62), rgba(55, 65, 81, .36));
@@ -849,7 +856,7 @@ input:focus {
 }
 
 .switch-row {
-  margin: 0 0 18px;
+  margin: auto 0 18px;
 }
 
 .switch-card {
@@ -1225,9 +1232,10 @@ input:focus {
 
 .projects-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
   align-content: start;
+  min-height: 520px;
 }
 
 .panel-heading {
@@ -1251,10 +1259,51 @@ input:focus {
 }
 
 .project-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  align-items: center;
   min-height: 92px;
   padding: 16px 18px 20px;
   cursor: pointer;
   overflow: hidden;
+}
+
+.project-thumb {
+  position: relative;
+  overflow: hidden;
+  width: 72px;
+  height: 92px;
+  border: 1px solid rgba(226, 232, 240, .1);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(125, 211, 252, .18), transparent 44%),
+    linear-gradient(145deg, rgba(31, 41, 55, .9), rgba(15, 23, 42, .78));
+  box-shadow: 0 14px 28px rgba(2, 6, 23, .24);
+}
+
+.project-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.02);
+}
+
+.project-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(2, 6, 23, .35));
+}
+
+.empty-thumb {
+  display: grid;
+  place-items: center;
+  color: #93c5fd;
+}
+
+.project-card-copy {
+  min-width: 0;
 }
 
 .project-card h3 {
@@ -1334,6 +1383,41 @@ input:focus {
   background: linear-gradient(90deg, #1e3a8a, #14b8a6, #bfdbfe);
   box-shadow: 0 0 14px rgba(125, 211, 252, .22);
   transition: width .35s ease;
+}
+
+.gallery-pager {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: auto;
+  padding: 12px;
+}
+
+.gallery-pager button {
+  border: 1px solid rgba(226, 232, 240, .12);
+  border-radius: 999px;
+  padding: 9px 13px;
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, .06);
+}
+
+.gallery-pager button:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, .34);
+  background: rgba(14, 165, 233, .12);
+}
+
+.gallery-pager button:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.gallery-pager span {
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .status-badge {
@@ -2209,7 +2293,7 @@ input:focus {
 }
 
 .prompt-box textarea {
-  min-height: 132px;
+  min-height: 300px;
 }
 
 .style-card-grid {
@@ -2262,7 +2346,7 @@ input:focus {
 }
 
 .switch-row {
-  margin: 14px 0;
+  margin: auto 0 16px;
 }
 
 .generate-button {
@@ -2273,6 +2357,7 @@ input:focus {
 .projects-panel {
   grid-template-columns: 1fr;
   gap: 10px;
+  min-height: 520px;
 }
 
 .project-card {

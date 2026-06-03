@@ -60,16 +60,20 @@ export async function generateStory(theme: string, style: string, ageGroup: stri
 export async function generateScenePlans(theme: string, style: string, scenes: string[]): Promise<ScenePlan[]> {
   const visualProfile = buildVisualProfile(theme, style);
   const subjectLock = buildCoreSubjectLock(theme, scenes);
+  const styleIntent = buildPromptStyleIntent(theme, style);
   const prompt = [
     "Aşağıdaki video sahneleri için kaliteli görsel üretim planı hazırla.",
     "Sadece geçerli JSON dön. Markdown kullanma.",
     "Her sahne için: summary, visualPrompt, negativePrompt, searchTerms alanları olsun.",
-    "Tüm sahneler aynı görsel evrende, aynı kamera/renk/karakter estetiğinde kalmalı.",
-    "Her visualPrompt, ana karakterleri/nesneleri/mekanı birebir korumalı; sahne sadece arka plan görseli olmamalı.",
+    "Görsel dili kullanıcı promptundan çıkar; fütüristik yazıyorsa fütüristik, gerçekçi yazıyorsa gerçekçi, çizgi film yazıyorsa çizgi film olmalı.",
+    "Ana karakterleri/nesneleri/mekanı görünür tut; promptta geçen ana nesneleri asla çıkarma veya alakasız arka planla değiştirme.",
+    "Her visualPrompt sahnedeki aksiyonu, karakterleri, mekanı ve stil niyetini tek karede açıkça tarif etmeli.",
+    "Stili aşırı kısıtlama ama konu eşleşmesini sert tut: prompt Mars diyorsa Mars, kedi diyorsa kedi, köpek diyorsa köpek görünmeli.",
     "visualPrompt mutlaka tamamen İngilizce yazılsın; Türkçe kelime, altyazı, başlık veya ekranda metin isteme.",
     "visualPrompt yüksek kalite, metinsiz, logosuz ve sosyal medya videosuna uygun olsun.",
     "searchTerms stok medya aramak için 2-4 kısa İngilizce terim içersin.",
-    `Görsel tutarlılık kilidi: ${visualProfile}`,
+    `Görsel yön: ${visualProfile}`,
+    `Kullanıcı stil niyeti: ${styleIntent}`,
     `Ana konu kilidi: ${subjectLock}`,
     `Tema: ${theme}`,
     `Stil: ${style}`,
@@ -78,9 +82,9 @@ export async function generateScenePlans(theme: string, style: string, scenes: s
 
   const generated = await tryGroqJson<{ scenes?: ScenePlan[] }>(prompt, "Sen video prodüksiyonunda güçlü görsel yönetmenlik yapan bir asistansın.");
   if (generated?.scenes?.length) {
-    return scenes.map((scene, index) => normalizeScenePlan(generated.scenes?.[index], scene, style, visualProfile, subjectLock));
+    return scenes.map((scene, index) => normalizeScenePlan(generated.scenes?.[index], scene, style, visualProfile, subjectLock, styleIntent));
   }
-  return scenes.map((scene) => normalizeScenePlan(null, scene, style, visualProfile, subjectLock));
+  return scenes.map((scene) => normalizeScenePlan(null, scene, style, visualProfile, subjectLock, styleIntent));
 }
 
 export async function generateLanguageVariants(story: GeneratedStory, languages: LanguageCode[], targetPlatform: string): Promise<VariantCopy[]> {
@@ -144,22 +148,24 @@ export async function generateExportCopy(title: string, story: string, language:
 
 function buildStoryPrompt(theme: string, style: string, ageGroup: string, sceneCount: number) {
   return [
-    "Türkçe, sosyal medya için kısa, dikkat çekici ve akıcı bir video anlatımı üret.",
-    "Kanal dili: Türkiye gündemi, tarih ve spor hikayelerini sıkıcı olmayan, güvenilir ve merak uyandıran dille anlatan kısa video sayfası.",
-    "Video yapısı: 0-2 sn güçlü hook, 2-8 sn bağlam, orta bölümde 2 net detay, sondan önce ters köşe/sonuç, finalde kısa CTA.",
-    "Masalsı çocuk dili, okul ödevi dili, haber spikeri dili, yapay zeka kanalı dili ve 'Sahne 1' gibi ifadeler kullanma.",
-    "Sahnelerde 'Hook:', 'Bağlam:', 'Detay 1:', zaman etiketi veya nesne kullanma; scenes dizisindeki her eleman sadece düz string olsun.",
-    "Güncel/gündem içerikte kesin bilgi uydurma; emin olmadığın iddiayı soru, arka plan veya tartışma çerçevesiyle güvenli anlat.",
-    `Tema: ${theme}`,
-    `Gorsel stil: ${style}`,
+    "Türkçe, 15-20 saniyelik dikey video için çok basit ve tutarlı bir mini hikaye üret.",
+    "Kullanıcının promptu tek kaynak kabul edilecek; konu, karakter, mekan, tür ve stil dışına çıkma.",
+    "Promptta geçen ana nesneler her sahnede mantıklı şekilde korunmalı. Örneğin kedi/köpek/Mars/uzay gemisi yazıyorsa hikaye bunları terk etmemeli.",
+    "Yeni karakter, alakasız mekan, haber/gündem dili, okul ödevi dili, yapay zeka dili veya 'Sahne 1' gibi etiketler ekleme.",
+    "Hikaye akışı: sahne 1 giriş ve ortam, sahne 2 keşif/olay, sahne 3 sonuç/duygu.",
+    "Her scene hem altyazı hem seslendirme hem de görsel promptun ana kaynağı olacak.",
+    "Bu yüzden her scene tek cümle, tek mekan, tek ana aksiyon ve somut görünen nesneler içermeli.",
+    "Karmaşık yan olay, soyut duygu, metafor, çok fazla sıfat veya birden fazla aksiyon yazma.",
+    `Kullanıcı promptu: ${theme}`,
+    `Görsel stil ipucu: ${style}`,
     `Hedef yas/ton referansi: ${ageGroup}`,
     `Tam olarak ${sceneCount} kısa sahne yaz.`,
     "Sadece gecerli JSON don. Markdown kullanma.",
     "JSON semasi: {\"title\":\"...\",\"story\":\"...\",\"scenes\":[\"sadece metin\", \"sadece metin\", \"sadece metin\"]}.",
-    "story 250 karakteri ve 42 kelimeyi geçmesin; 20 saniye içinde tamamı seslendirilebilir olsun.",
-    "Her scene 58 karakteri geçmesin; altyazı gibi vurucu ve kısa olsun.",
-    "Sahneler sırasıyla hook, gelişme/detay ve sonuç/CTA akışını taşısın.",
-    "En az bir sahnede güçlü vurgu kelimesi olsun: 'asıl detay', 'kırılma anı', 'kimse bunu konuşmuyor' gibi.",
+    "story 180 karakteri ve 30 kelimeyi geçmesin.",
+    "Her scene 62 karakteri ve 9 kelimeyi geçmesin.",
+    "Her scene mümkünse şu biçime yakın olsun: 'Kedi ve köpek Mars yüzeyinde yürür.'",
+    "scenes dizisi story ile aynı olayı aynı sırada anlatmalı; altyazı/ses/görsel arasında anlam farkı olmamalı.",
     "scenes sadece string metin dizisi olsun ve sahne sayisi istenen sayiya esit olsun."
   ].join("\n");
 }
@@ -186,12 +192,12 @@ async function tryGroqStory(prompt: string, sceneCount: number) {
       },
       body: JSON.stringify({
         model: env.groqModel,
-        temperature: 0.55,
+        temperature: 0.38,
         response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
-            content: "Sen sosyal medya icin kisa, vurucu ve video sahnelerine bolunebilir Turkce anlatilar yazan yaratici bir asistansin."
+            content: "Sen kullanici promptuna sadik kalan, kisa video icin net sahneler ve dogal Turkce seslendirme cumleleri yazan bir senaristsin."
           },
           { role: "user", content: prompt }
         ]
@@ -238,7 +244,14 @@ async function tryGroqJson<T>(prompt: string, system: string): Promise<T | null>
   }
 }
 
-function normalizeScenePlan(plan: ScenePlan | null | undefined, scene: string, style: string, visualProfile = buildVisualProfile(scene, style), subjectLock = buildCoreSubjectLock(scene, [scene])): ScenePlan {
+function normalizeScenePlan(
+  plan: ScenePlan | null | undefined,
+  scene: string,
+  style: string,
+  visualProfile = buildVisualProfile(scene, style),
+  subjectLock = buildCoreSubjectLock(scene, [scene]),
+  styleIntent = buildPromptStyleIntent(scene, style)
+): ScenePlan {
   const rawPrompt = plan?.visualPrompt || [
     "high quality cinematic social video frame",
     `${style} style`,
@@ -250,28 +263,39 @@ function normalizeScenePlan(plan: ScenePlan | null | undefined, scene: string, s
     visualPrompt: [
       visualProfile,
       subjectLock,
+      styleIntent,
       "Write this image prompt in English only.",
       `Scene action must be visible: ${translateVisualCue(scene)}`,
-      "Keep the exact same visual style, character design, lighting, color palette, camera language and production quality across all scenes.",
+      "Keep the main subjects recognizable across scenes, but follow the user's requested genre and atmosphere without over-constraining the style.",
       rawPrompt
     ].join(", "),
     negativePrompt: [
       plan?.negativePrompt,
       "text, watermark, logo, low quality, blurry, distorted, scary, violent",
-      "inconsistent art style, mixed realistic and cartoon styles, different character design, different color palette"
+      "unrelated subject, missing main character, generic background, different main character design"
     ].filter(Boolean).join(", "),
     searchTerms: plan?.searchTerms?.length ? plan.searchTerms.slice(0, 4) : buildSearchTerms(scene)
   };
 }
 
 export function buildVisualProfile(theme: string, style: string) {
-  const base = "vertical 9:16 social short, consistent visual bible, same world, same color grading, no text, no watermark, no logo";
+  const base = "vertical 9:16 social short, prompt-directed visual style, same main subjects, no text, no watermark, no logo";
   const lowerTheme = theme.toLocaleLowerCase("tr-TR");
+  const styleIntent = buildPromptStyleIntent(theme, style);
+  if (styleIntent.includes("futuristic")) {
+    return `${base}, ${styleIntent}, high-tech environment, coherent futuristic production design, cinematic lighting, not childish, not toy-like`;
+  }
+  if (styleIntent.includes("product")) {
+    return `${base}, ${styleIntent}, premium commercial product-video look, real materials, elegant tabletop or lifestyle lighting, not cartoon`;
+  }
+  if (styleIntent.includes("photorealistic")) {
+    return `${base}, ${styleIntent}, natural camera perspective, believable real-world lighting, adult premium visual tone, not cartoon, not anime`;
+  }
   if (lowerTheme.includes("türkiye") || lowerTheme.includes("gündem") || lowerTheme.includes("tarih") || lowerTheme.includes("spor")) {
     return `${base}, premium editorial documentary short, realistic Turkish urban atmosphere, tasteful navy and warm gray grade, cinematic archival mood, modern sports-documentary framing, believable people and places, not cartoon, not childish, not fantasy`;
   }
   if (style === "cartoon") {
-    return `${base}, premium 3D animated film still, friendly stylized characters, soft rounded shapes, vibrant but controlled colors, Pixar-like production quality, not photorealistic`;
+    return `${base}, polished stylized animation only when the user explicitly asks for cartoon, cohesive character design, controlled colors, not childish, not toy-like`;
   }
   if (style === "storybook") {
     return `${base}, premium illustrated storybook frame, warm painterly texture, gentle lighting, cohesive hand-painted look, not photorealistic`;
@@ -279,7 +303,24 @@ export function buildVisualProfile(theme: string, style: string) {
   if (style === "educational") {
     return `${base}, clean modern educational motion graphic style, simple premium shapes, consistent iconographic visual language, clear contrast`;
   }
-  return `${base}, realistic cinematic UGC-inspired frame, natural camera perspective, believable lighting, polished documentary social video look, not cartoon`;
+  return `${base}, photorealistic cinematic frame, natural camera perspective, believable real-world lighting, polished documentary social video look, adult premium visual tone, not cartoon, not anime, not childlike 3D render, not toy-like`;
+}
+
+function buildPromptStyleIntent(theme: string, style: string) {
+  const lower = `${theme} ${style}`.toLocaleLowerCase("tr-TR");
+  if (/fütüristik|futuristic|cyberpunk|sci[- ]?fi|bilim kurgu|gelecek|neon|robot|mars|uzay|space|hologram/.test(lower)) {
+    return "requested visual style: futuristic cinematic sci-fi, high-tech atmosphere, neon accents, advanced materials, dramatic contrast, realistic or premium concept-art look according to the prompt";
+  }
+  if (/gerçekçi|gercekci|realistic|photoreal|fotoğraf|fotograf|documentary|belgesel|ugc|street|sokak/.test(lower)) {
+    return "requested visual style: photorealistic cinematic documentary, real camera lens, natural skin and material texture, believable environment";
+  }
+  if (/ürün|urun|product|reklam|commercial|tanıtım|tanitim|kalem|araba|car/.test(lower)) {
+    return "requested visual style: premium commercial product video, realistic lifestyle scene, clean composition, real-world materials and reflections";
+  }
+  if (/çizgi film|cizgi film|cartoon|anime|storybook|masal|illustration|illustrated/.test(lower)) {
+    return "requested visual style: stylized illustration or animation because the user explicitly requested it, cohesive and premium, not generic childish clipart";
+  }
+  return "requested visual style: follow the user's prompt literally; use cinematic realism by default and do not force cartoon or childish 3D";
 }
 
 function buildCoreSubjectLock(theme: string, scenes: string[]) {
@@ -291,6 +332,7 @@ function buildCoreSubjectLock(theme: string, scenes: string[]) {
   if (animalLocks.length) locks.push(`main characters: ${animalLocks.join(" and ")}, same appearance in every scene`);
   if (/kano|kayak|canoe/.test(source)) locks.push("main prop: a small canoe clearly visible");
   if (/koy|sahil|deniz|ada|beach|bay|sea/.test(source)) locks.push("main location: calm sea, hidden bay, shoreline and warm sunlight");
+  if (/mars|uzay|space|spaceship|roket|rocket|gezegen/.test(source)) locks.push("main world: futuristic Mars adventure, red planet landscape, spaceship or Mars base when relevant");
   if (/kalem|pen|ürün|urun|product/.test(source)) locks.push("main subject: the product must stay clearly visible and consistent");
   if (/futbol|spor|maç|mac|football|stadium/.test(source)) locks.push("main world: realistic sports documentary visuals, stadium or training atmosphere when relevant");
   if (/tarih|osmanlı|osmanli|cumhuriyet|history/.test(source)) locks.push("main world: realistic historical documentary atmosphere, archival texture when relevant");
@@ -308,6 +350,9 @@ function translateVisualCue(scene: string) {
   if (/deniz|dalga|su/.test(lower)) cues.push("sea water");
   if (/martı|marti/.test(lower)) cues.push("seagulls");
   if (/güneş|gunes/.test(lower)) cues.push("warm sunlight");
+  if (/mars/.test(lower)) cues.push("Mars red planet landscape");
+  if (/uzay|roket|spaceship|space/.test(lower)) cues.push("futuristic spaceship");
+  if (/fütüristik|futuristic|neon/.test(lower)) cues.push("futuristic sci-fi design");
   if (!cues.length) cues.push(scene);
   return cues.join(", ");
 }

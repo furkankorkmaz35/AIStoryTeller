@@ -17,10 +17,11 @@ export async function renderProjectVideo(projectId: string, props: Omit<VideoPro
   const rawOutputLocation = path.join(projectDir, `raw-${outputName}`);
   const entryPoint = path.join(apiRoot, "src/remotion/index.ts");
   const audioSeconds = await getAudioDurationSeconds(projectId, props.audioPath);
-  const durationInFrames = resolveDurationInFrames(props.scenes.length, audioSeconds);
+  const sceneDurationsInFrames = resolveSceneDurationsInFrames(props.scenes.length, props.sceneDurationsInFrames);
+  const durationInFrames = sceneDurationsInFrames.length ? sceneDurationsInFrames.reduce((total, value) => total + value, 0) : resolveDurationInFrames(props.scenes.length, audioSeconds);
   const sceneDurationInFrames = Math.ceil(durationInFrames / Math.max(props.scenes.length, 1));
   const bundled = await bundle({ entryPoint, webpackOverride: (config) => config });
-  const inputProps: VideoProps = { ...props, apiBaseUrl: env.publicApiBaseUrl, sceneDurationInFrames };
+  const inputProps: VideoProps = { ...props, apiBaseUrl: env.publicApiBaseUrl, sceneDurationInFrames, sceneDurationsInFrames };
   process.env.PUBLIC_API_BASE_URL = env.publicApiBaseUrl;
   const composition = await selectComposition({
     serveUrl: bundled,
@@ -44,6 +45,12 @@ export async function renderProjectVideo(projectId: string, props: Omit<VideoPro
   await fs.rm(rawOutputLocation, { force: true });
 
   return publicPathFor(projectId, outputName);
+}
+
+function resolveSceneDurationsInFrames(sceneCount: number, sceneDurationsInFrames?: number[]) {
+  if (!sceneDurationsInFrames?.length) return [];
+  const safeSceneCount = Math.max(sceneCount, 1);
+  return Array.from({ length: safeSceneCount }, (_, index) => clamp(Math.round(sceneDurationsInFrames[index] || 0), 72, 240));
 }
 
 async function getAudioDurationSeconds(projectId: string, audioPath?: string) {

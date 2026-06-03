@@ -40,6 +40,7 @@ const projectSchema = new Schema(
     imageQuality: { type: String, enum: ["demo", "balanced", "high"], default: "balanced" },
     status: { type: String, enum: projectStatuses, default: "queued" },
     errorMessage: { type: String, default: "" },
+    thumbnailPath: { type: String, default: "" },
     videoPath: { type: String, default: "" }
   },
   { timestamps: true }

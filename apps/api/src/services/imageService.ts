@@ -104,22 +104,35 @@ async function tryProvider(provider: string, projectDir: string, sceneOrder: num
 }
 
 function buildImagePrompt(sceneText: string, style: string) {
+  const styleIntent = resolvePromptStyleIntent(sceneText, style);
+  const requiredSubjects = extractRequiredSubjects(sceneText);
+  const sceneAction = extractSceneAction(sceneText);
+  const setting = extractSimpleSetting(sceneText);
   return [
-    "premium realistic vertical social media video frame",
-    "natural camera perspective, documentary UGC realism, believable lighting",
-    `${style} mood, polished short-form storytelling, elegant composition`,
-    "sharp subject, soft depth of field, cinematic color grade, high production value",
-    "no text, no watermark, no logo, no distorted faces, no extra limbs, no blurry details",
-    sceneText
+    "simple literal vertical 9:16 image",
+    `foreground subjects: ${requiredSubjects}`,
+    `main action: ${sceneAction}`,
+    `setting: ${setting}`,
+    `style: ${styleIntent}`,
+    "centered composition, subjects large and clearly visible",
+    "plain background, no extra characters, no unrelated objects",
+    "no text, no watermark, no logo"
   ].join(", ");
 }
 
 function strengthenVisualPrompt(prompt: string, sceneText: string, style: string) {
+  const styleIntent = resolvePromptStyleIntent(`${sceneText} ${prompt}`, style);
+  const requiredSubjects = extractRequiredSubjects(`${sceneText} ${prompt}`);
+  const sceneAction = extractSceneAction(sceneText);
+  const setting = extractSimpleSetting(sceneText);
   return [
-    `Scene subject lock: the image must directly represent this scene, not a generic unrelated background: "${sceneText}"`,
-    "Use one coherent visual style for the whole video; do not mix cartoon, anime, stock-photo, and realistic looks.",
-    "Prefer believable Turkish social-video aesthetics when the scene mentions Turkey, agenda, history, sport, student life, or product UGC.",
-    `${style} visual direction`,
+    "Generate exactly this simple scene.",
+    `Foreground must show: ${requiredSubjects}.`,
+    `Action must be visible: ${sceneAction}.`,
+    `Background/setting must be: ${setting}.`,
+    `Visual style: ${styleIntent}.`,
+    "Do not add different characters, different vehicles, different locations, text, captions, signs, or logos.",
+    "Keep the image simple and literal, not symbolic.",
     prompt
   ].join(", ");
 }
@@ -133,7 +146,7 @@ async function tryCloudflareImage(projectDir: string, sceneOrder: number, prompt
         Authorization: `Bearer ${env.cloudflareApiToken}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt, negative_prompt: "text, watermark, logo, blurry, low quality" })
+      body: JSON.stringify({ prompt, negative_prompt: negativeImagePrompt(prompt) })
     });
     const contentType = response.headers.get("content-type") ?? "";
     const bytes = Buffer.from(await response.arrayBuffer());
@@ -156,6 +169,9 @@ async function tryPollinationsImage(projectDir: string, sceneOrder: number, prom
     url.searchParams.set("height", "1920");
     url.searchParams.set("nologo", "true");
     url.searchParams.set("enhance", "true");
+    url.searchParams.set("seed", String(stableSceneSeed(prompt, sceneOrder)));
+    url.searchParams.set("quality", "high");
+    url.searchParams.set("negative_prompt", negativeImagePrompt(prompt));
     url.searchParams.set("safe", "privacy,secrets");
     const response = await fetch(url, {
       headers: {
@@ -194,7 +210,7 @@ async function tryHuggingFaceImage(projectDir: string, sceneOrder: number, promp
           height: 720,
           num_inference_steps: env.huggingFaceImageSteps,
           guidance_scale: env.huggingFaceGuidanceScale,
-          negative_prompt: "text, watermark, logo, low quality, blurry"
+          negative_prompt: negativeImagePrompt(prompt)
         },
         options: { wait_for_model: true }
       })
@@ -214,6 +230,108 @@ async function tryHuggingFaceImage(projectDir: string, sceneOrder: number, promp
 async function tryStockImage(projectDir: string, sceneOrder: number, plan: ScenePlan) {
   const query = plan.searchTerms[0] || plan.summary || "cinematic background";
   return (await tryPexels(projectDir, sceneOrder, query)) ?? (await tryPixabay(projectDir, sceneOrder, query));
+}
+
+function extractRequiredSubjects(source: string) {
+  const lower = source.toLocaleLowerCase("tr-TR");
+  const subjects: string[] = [];
+  if (/\bkedi\b|cat/.test(lower)) subjects.push("one cat clearly visible");
+  if (/\bköpek\b|\bkopek\b|dog/.test(lower)) subjects.push("one dog clearly visible");
+  if (/mars/.test(lower)) subjects.push("red Mars landscape clearly visible");
+  if (/uzay gemisi|spaceship|space ship|roket|rocket/.test(lower)) subjects.push("small futuristic spaceship clearly visible");
+  if (/uzay|space|astronaut|space suit|spacesuit/.test(lower)) subjects.push("futuristic space suits or sci-fi space details");
+  if (/kano|canoe|kayak/.test(lower)) subjects.push("small canoe clearly visible");
+  if (/koy|bay|sahil|beach|sea|deniz/.test(lower)) subjects.push("coastline or water clearly visible");
+  if (/kalem|pen/.test(lower)) subjects.push("the pen product clearly visible");
+  if (/araba|car|otomobil/.test(lower)) subjects.push("the car clearly visible");
+  if (/çocuk|cocuk|child|boy|girl/.test(lower)) subjects.push("the child clearly visible");
+  if (!subjects.length) subjects.push("the main subject described by the prompt clearly visible");
+  return subjects.join("; ");
+}
+
+function extractSceneAction(source: string) {
+  const scene = extractSceneLine(source);
+  return scene || "the main subject is clearly shown";
+}
+
+function extractSimpleSetting(source: string) {
+  const lower = source.toLocaleLowerCase("tr-TR");
+  if (/mars/.test(lower)) return "red Mars surface, simple sci-fi background";
+  if (/showroom|galeri|car showroom|araba/.test(lower)) return "modern car showroom or simple city street";
+  if (/yağmur|yagmur|rain|rainy/.test(lower)) return "rainy modern city street";
+  if (/okul|school/.test(lower)) return "simple school street";
+  if (/sokak|street/.test(lower)) return "simple street background";
+  if (/koy|bay|sahil|beach|deniz|sea/.test(lower)) return "calm sea shore or small bay";
+  if (/orman|forest/.test(lower)) return "simple forest background";
+  if (/ev|home|room|oda/.test(lower)) return "simple home interior";
+  return "simple background matching the user prompt";
+}
+
+function extractSceneLine(source: string) {
+  const lines = source.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const sceneLine = [...lines].reverse().find((line) => /^scene\s*\d+\s*:/i.test(line));
+  const value = (sceneLine || lines.at(-1) || source)
+    .replace(/^scene\s*\d+\s*:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return value.length > 120 ? `${value.slice(0, 116).trim()}...` : value;
+}
+
+function stableSceneSeed(prompt: string, sceneOrder: number) {
+  let hash = 2166136261 + sceneOrder * 101;
+  for (const char of prompt) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash % 1000000);
+}
+
+function negativeImagePrompt(prompt = "") {
+  const lower = prompt.toLocaleLowerCase("tr-TR");
+  const allowsStylized = /cartoon|anime|illustration|illustrated|storybook|stylized|çizgi|cizgi|masal/.test(lower);
+  const allowsConceptArt = /futuristic|cyberpunk|sci[- ]?fi|concept art|neon|robot|space|mars|fütüristik/.test(lower);
+  const base = [
+    "text",
+    "watermark",
+    "logo",
+    "caption",
+    "blurry",
+    "low quality",
+    "childlike",
+    "toy",
+    "pixar",
+    "plastic skin",
+    "oversized eyes",
+    "distorted face",
+    "extra limbs",
+    "crowd",
+    "busy background",
+    "complex scene",
+    "multiple unrelated subjects",
+    "different scene",
+    "symbolic image",
+    "abstract art"
+  ];
+  if (!allowsStylized) base.push("cartoon", "anime", "children book illustration", "cute kids style");
+  if (!allowsConceptArt) base.push("generic sci-fi background", "unrelated neon city");
+  return base.join(", ");
+}
+
+function resolvePromptStyleIntent(source: string, style: string) {
+  const lower = `${source} ${style}`.toLocaleLowerCase("tr-TR");
+  if (/fütüristik|futuristic|cyberpunk|sci[- ]?fi|bilim kurgu|gelecek|neon|robot|mars|uzay|space|hologram/.test(lower)) {
+    return "futuristic cinematic sci-fi style, high-tech architecture or environment, neon accents, advanced materials, dramatic lighting, not a cute cartoon";
+  }
+  if (/ürün|urun|product|reklam|commercial|tanıtım|tanitim|kalem|araba|car|dealership/.test(lower)) {
+    return "premium realistic commercial style, real-world product/lifestyle photography, clean modern composition, natural reflections and materials";
+  }
+  if (/çizgi film|cizgi film|cartoon|anime|storybook|masal|illustration|illustrated/.test(lower)) {
+    return "explicitly requested stylized animation or illustration, cohesive premium style, not generic childish clipart";
+  }
+  if (/gerçekçi|gercekci|realistic|photoreal|fotoğraf|fotograf|documentary|belgesel|ugc|street|sokak/.test(lower)) {
+    return "photorealistic cinematic documentary style, real camera lens, natural skin/fur texture, believable street or indoor environment";
+  }
+  return "prompt-directed cinematic style, photorealistic by default, no generic cartoon or childlike animation";
 }
 
 async function tryPexels(projectDir: string, sceneOrder: number, query: string) {
@@ -304,6 +422,7 @@ function estimateMaterialQuality(materialType: MaterialResult["materialType"], p
   if (provider.includes("huggingface")) score += 2;
   if (prompt.includes("Scene subject lock")) score += 4;
   if (prompt.includes("no text") && prompt.includes("no watermark")) score += 2;
+  if (prompt.includes("photorealistic") || prompt.includes("real-world")) score += 3;
   if (materialType === "stock-image" && prompt.split(/\s+/).length < 5) score -= 8;
   return Math.max(35, Math.min(96, score));
 }
