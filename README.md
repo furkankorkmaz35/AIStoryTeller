@@ -1,62 +1,205 @@
-# AIStoryTeller Cloud Video Studio
+# AIStoryTeller
 
-AIStoryTeller, kullanicidan aldigi fikir ve stil ayarlariyla cok dilli sosyal medya videolari ureten bir Vue + Express uygulamasidir. Sistem local AI modeli calistirmaz; Groq/Gemini metin zekasi, cloud/free-tier gorsel ve ses servisleri, stok medya destekleri ve Remotion fallback sahneleriyle demo guvenilirligini korur.
+AIStoryTeller, kullanıcıdan aldığı kısa bir promptu 3 sahnelik dikey sosyal medya videosuna dönüştüren bir video üretim stüdyosudur. Proje; hikaye yazımı, görsel üretimi, Türkçe seslendirme, altyazı, video render ve MongoDB kayıtlarını tek akışta birleştirir.
 
-## Teknoloji Stack'i
+Bu sürümde amaç karmaşık bir otomasyon paneli değil, ders sunumunda net gösterilebilen sade ve çalışan bir üretim hattıdır: prompt girilir, sistem hikaye/sahne üretir, görselleri ve sesi oluşturur, Remotion ile MP4 render eder ve tüm çıktıları MongoDB ile dosya sisteminde izlenebilir şekilde saklar.
 
-- Vue 3 + Vite + TypeScript
-- Node.js + Express + TypeScript
-- MongoDB + Mongoose
-- BullMQ + Redis
-- Remotion
-- Groq/Gemini + fallback story, prompt, ceviri ve sosyal export metni
-- Cloudflare Workers AI / Pollinations / Hugging Face image generation
-- Pexels/Pixabay stok medya destekleri
-- Azure Speech / Edge TTS / ElevenLabs text-to-speech
-- Cok dilli varyant uretimi: TR, EN, DE, ES
+## Güncel Mimari Kararı
 
-## Kurulum
+Proje sadeleştirilmiş monorepo mimarisiyle ilerler:
 
-```bash
-pnpm install
-cp .env.example .env
+- Frontend, Vue 3 + Vite ile hazırlanmıştır.
+- Backend, Express + TypeScript ile API katmanını sağlar.
+- MongoDB, proje, sahne, medya dosyası ve pipeline log kayıtlarını tutar.
+- Redis + BullMQ, video üretim adımlarını kuyruk halinde çalıştırır.
+- Worker, uzun süren üretim işlerini API'den ayırır.
+- Remotion, görsel, ses ve altyazıları final MP4 videoya dönüştürür.
+- Local AI modeli çalıştırılmaz; cihazı yormamak için cloud/free-tier providerlar ve fallback mekanizmaları kullanılır.
+
+Ana karar: sistemin demo sırasında bozulmaması için her kritik adımda fallback vardır. Görsel provider çalışmazsa tasarımsal fallback sahne, ses provider çalışmazsa sessiz fallback devreye girebilir. Böylece pipeline tamamen yarıda kalmaz.
+
+## Klasör Yapısı
+
+```text
+apps/
+  api/
+    src/
+      controllers/        HTTP isteklerini servis katmanına taşır
+      models/             MongoDB/Mongoose modelleri
+      queues/             BullMQ video kuyruğu
+      routes/             Express route tanımları
+      services/           Hikaye, görsel, ses, video ve pipeline iş mantığı
+      remotion/           Final MP4 composition dosyaları
+      validators/         API request doğrulama şemaları
+      worker.ts           BullMQ job listener
+  web/
+    src/
+      components/         Vue arayüz parçaları
+      composables/        Frontend state ve API akışı
+      constants/          Pipeline status sırası ve etiketleri
+      lib/                API helper fonksiyonları
+outputs/                  Üretilen görsel, ses, altyazı ve MP4 dosyaları
+docker-compose.yml        MongoDB, Redis, API, Worker ve Web servisleri
 ```
 
-Varsayilan metin modu `AI_PROVIDER=fallback` ile calisir. Groq kullanmak icin `.env` icinde `AI_PROVIDER=groq` veya `AI_PROVIDER=auto` ve `GROQ_API_KEY` girin. Groq, gorsel veya ses uretmez; hikaye, prompt, ceviri, caption ve hashtag icin kullanilir.
+## Kullanılan Teknolojiler
 
-Ses icin varsayilan `VOICE_PROVIDER=auto` ayarlidir. Siralama: Azure Speech, Edge TTS, ElevenLabs, sessiz fallback. Azure icin `AZURE_SPEECH_KEY` ve `AZURE_SPEECH_REGION`; ElevenLabs icin `ELEVENLABS_API_KEY` girilebilir.
+### Frontend
 
-Gorsel icin varsayilan `IMAGE_PROVIDER=auto` ayarlidir. Siralama: Cloudflare Workers AI, Pollinations, Hugging Face, Pexels/Pixabay, premium SVG fallback. Local ComfyUI, Stable Diffusion veya Piper calistirilmaz; cihaz yorulmaz.
+- Vue 3
+- Vite
+- JavaScript
+- CSS
+- lucide-vue-next ikonları
 
-## Docker Compose ile Calistirma
+Frontend bilinçli olarak sade tutulmuştur. Ana ekran; prompt formu, galeri, üretim önizlemesi, MongoDB kayıt kanıtı, görsel/ses/video çıktıları ve pipeline loglarını gösterir.
 
-Tum sistemi Docker Compose ile tek komutta baslatabilirsiniz:
+### Backend
+
+- Node.js
+- Express
+- TypeScript
+- Mongoose
+- BullMQ
+- Redis
+- Remotion
+- FFmpeg / FFprobe
+
+Backend controller-service-model ayrımıyla düzenlenmiştir. API sadece proje oluşturma/listeleme/detay ve sistem durumu verir. Ağır üretim işlemleri worker tarafında çalışır.
+
+### Veritabanı ve Kuyruk
+
+- MongoDB: proje, sahne, asset ve job event kayıtları
+- Redis: BullMQ job kuyruğu
+
+MongoDB koleksiyonları:
+
+- `projects`: Ana video üretim kaydı
+- `scenes`: Hikaye sahneleri, görsel promptlar ve seçilen görseller
+- `assets`: Üretilen image/audio/subtitle/video dosya yolları
+- `jobevents`: Pipeline adım logları
+
+## Kullanılan API ve Providerlar
+
+### Metin / Hikaye
+
+- Groq
+- Gemini
+- Deterministik fallback hikaye servisi
+
+Varsayılan metin akışı `.env` içindeki `AI_PROVIDER` değerine göre çalışır. Groq veya Gemini key yoksa sistem fallback hikaye üretimiyle demo akışını sürdürebilir.
+
+### Görsel
+
+Öncelikli görsel üretim/destek kaynakları:
+
+- Cloudflare Workers AI
+- Pollinations
+- Hugging Face Inference
+- Pexels
+- Pixabay
+- Yerel tasarımsal SVG fallback
+
+Görsel üretimden önce sahne metni İngilizce ve daha somut bir görsel prompta çevrilir. Prompt güçlendirme katmanı; ana karakter, aksiyon ve mekanı kilitlemeye çalışır. Örneğin kullanıcı kedi yazdıysa görsel promptta kedinin görünmesi açıkça istenir.
+
+### Ses
+
+- ElevenLabs
+- Sessiz WAV fallback
+
+Bu sürümde ana ses provider ElevenLabs'tir. Seslendirme sahne sahne üretilir. Bunun sebebi:
+
+- Free-tier metin kesilmesini azaltmak
+- Her sahnenin ses süresini ölçmek
+- Görsel geçişleri ve altyazıyı sese daha iyi senkronlamak
+
+ElevenLabs başarısız olursa sistem render aşamasını tamamen durdurmamak için sessiz fallback kullanabilir.
+
+### Video Render
+
+- Remotion
+- FFmpeg
+- FFprobe
+
+Remotion sahne görsellerini, altyazıları ve ses dosyasını dikey video zaman çizelgesine yerleştirir. FFmpeg son aşamada görüntü keskinliği, renk ve ses normalizasyonu için kullanılır.
+
+## Üretim Akışı
+
+1. Kullanıcı Vue arayüzünden prompt yazar ve altyazı seçimini belirler.
+2. Express API, MongoDB'de `Project` kaydı oluşturur.
+3. API, ilk BullMQ job'ını kuyruğa ekler.
+4. Worker sırayla pipeline adımlarını çalıştırır:
+   - `generate-story`
+   - `generate-scenes-and-prompts`
+   - `generate-visual-candidates`
+   - `select-best-materials`
+   - `generate-audio`
+   - `generate-subtitles`
+   - `render-video`
+5. Her adım MongoDB'ye log olarak yazılır.
+6. Görseller, ses, altyazı ve MP4 dosyaları `outputs/` altında saklanır.
+7. Frontend seçili proje detayını yenileyerek video, ses, görseller ve pipeline loglarını gösterir.
+
+## API Özeti
+
+```text
+GET  /health
+GET  /api/system/status
+POST /api/projects
+GET  /api/projects
+GET  /api/projects/:id
+```
+
+### `POST /api/projects`
+
+Yeni video üretimi başlatır. Basit body örneği:
+
+```json
+{
+  "theme": "Okuldan çıkan çocuk sokakta küçük bir kedi görür ve onu sever.",
+  "subtitlesEnabled": true
+}
+```
+
+Backend diğer demo ayarlarını güvenli varsayılanlarla tamamlar:
+
+- `sceneCount`: 3
+- `style`: cinematic
+- `aspectRatio`: 9:16
+- `voiceProvider`: elevenlabs
+- `materialMode`: ai-image
+
+## Docker ile Çalıştırma
+
+Docker Desktop açıkken:
 
 ```bash
 pnpm stack:up
 ```
 
-Bu komut su servisleri ayaga kaldirir:
+Servisler:
 
-- `web`: Vue arayuzu + Nginx reverse proxy (`http://localhost:5173`)
-- `api`: Express API (`http://localhost:4000`)
-- `worker`: BullMQ video pipeline worker
-- `mongodb`: MongoDB (`localhost:27017`)
-- `redis`: Redis (`localhost:6380`)
+- Web: `http://localhost:5173`
+- API: `http://localhost:4000`
+- MongoDB: `mongodb://localhost:27017/ai-video-generator`
+- Redis: `localhost:6380`
 
-Docker icinde servisler birbirleriyle container adlari uzerinden haberlesir. API ve worker icin `MONGODB_URI=mongodb://mongodb:27017/ai-video-generator`, `REDIS_HOST=redis`, `REDIS_PORT=6379` degerleri compose tarafindan otomatik verilir.
-
-Servisleri durdurmak icin:
+Servisleri durdurmak için:
 
 ```bash
 pnpm stack:down
 ```
 
-Docker Desktop kapaliysa once Docker'i acin, sonra `pnpm stack:up` komutunu tekrar calistirin. Redis host portu proje icin `6380` olarak ayarlandi; bu sayede bilgisayarda baska Redis servisleri varsa port cakismasi azalir.
+Build alıp kontrol etmek için:
 
-## Lokal Gelistirme
+```bash
+pnpm typecheck
+pnpm build
+```
 
-Uc terminal kullanin:
+## Lokal Geliştirme
+
+Üç ayrı terminal:
 
 ```bash
 pnpm dev:api
@@ -70,70 +213,93 @@ pnpm worker
 pnpm dev:web
 ```
 
-Web arayuzu: `http://localhost:5173`
+Web arayüzü:
 
-API saglik kontrolu: `http://localhost:4000/health`
-
-Sistem durumu: `http://localhost:4000/api/system/status`
-
-## Demo Akisi
-
-1. Web arayuzunde tema, stil, yas grubu ve sahne sayisi secilir.
-2. Express API MongoDB'de proje olusturur.
-3. BullMQ worker hikaye, prompt, ceviri, gorsel, ses, altyazi, render ve export adimlarini sirayla calistirir.
-4. Dashboard proje durumlarini ve pipeline loglarini gosterir.
-5. Proje detayinda TR/EN/DE/ES dil sekmeleri, video player, caption, hashtag, sahneler ve MP4 indirme linkleri gorunur.
-6. Gorsel iyi degilse sahne kartindan sadece ilgili sahne tekrar uretilebilir.
-
-## Final Demo Komut Sirasi
-
-```bash
-pnpm stack:up
+```text
+http://localhost:5173
 ```
 
-Sonra `http://localhost:5173` adresinden yeni proje olusturun. Web container'i `/api` ve `/outputs` isteklerini Express API container'ina proxy eder.
+Sistem durumu:
 
-## API Ozeti
+```text
+http://localhost:4000/api/system/status
+```
 
-- `POST /api/projects`: Yeni video projesi olusturur ve pipeline'i baslatir.
-- `GET /api/projects`: Projeleri listeler.
-- `GET /api/projects/:id`: Proje, sahne, asset, varyant ve log detaylarini getirir.
-- `GET /api/projects/:id/export`: Dil bazli sosyal medya export paketini getirir.
-- `POST /api/projects/:id/retry`: Projeyi yeniden BullMQ pipeline'ina alir.
-- `POST /api/projects/:id/scenes/:sceneId/regenerate`: Sadece secili sahne gorselini tekrar uretir.
-- `GET /api/projects/:id/events`: Pipeline loglarini getirir.
-- `GET /api/system/status`: MongoDB, BullMQ queue ve aktif provider durumlarini getirir.
+## Ortam Değişkenleri
 
-## Otopilot Akisi
-
-Otopilot bolumu konsept bazli sosyal medya operasyonu icindir. API key yoksa fallback fikirler uretir; Groq key varsa trend/konsept uyumu daha akilli skorlanir.
-
-- `POST /api/autopilot/accounts`: Instagram/TikTok/YouTube konsept hesabi olusturur.
-- `GET /api/autopilot/accounts`: Otopilot hesaplarini listeler.
-- `POST /api/autopilot/accounts/:id/generate-ideas`: Konsepte uygun fikirleri skorlayip takvime alir.
-- `GET /api/autopilot/ideas`: Fikir listesini getirir.
-- `POST /api/autopilot/ideas/:id/approve`: Fikri onaylar.
-- `POST /api/autopilot/ideas/:id/reject`: Fikri reddeder.
-- `POST /api/autopilot/ideas/:id/produce`: Fikri video pipeline'ina aktarir.
-- `POST /api/autopilot/run-due`: Zamanı gelmis ve onaylanmis fikirleri uretime alir.
-
-## Sunum Icin Hizli Kontrol
+Örnek dosya:
 
 ```bash
-pnpm typecheck
+cp .env.example .env
+```
+
+Önemli değişkenler:
+
+```text
+MONGODB_URI
+REDIS_HOST
+REDIS_PORT
+PUBLIC_API_BASE_URL
+AI_PROVIDER
+GROQ_API_KEY
+GEMINI_API_KEY
+IMAGE_PROVIDER
+CLOUDFLARE_ACCOUNT_ID
+CLOUDFLARE_API_TOKEN
+POLLINATIONS_API_KEY
+HF_TOKEN
+PEXELS_API_KEY
+PIXABAY_API_KEY
+ELEVENLABS_API_KEY
+ELEVENLABS_VOICE_ID
+ELEVENLABS_FALLBACK_VOICE_ID
+```
+
+API key yoksa proje tamamen durmak yerine fallback katmanlarına inmeye çalışır. En kaliteli demo için en azından görsel provider ve ElevenLabs key önerilir.
+
+## Sunumda Gösterilecek Kanıtlar
+
+Frontend çıktı panelinde:
+
+- MongoDB `project._id`
+- Proje durumu
+- Pipeline yüzdesi
+- Üretilen görseller
+- Ses dosyası
+- Final MP4
+- Son job logları
+
+MongoDB Compass ile gösterilebilecek kayıtlar:
+
+```text
+mongodb://localhost:27017/ai-video-generator
+```
+
+Koleksiyonlar:
+
+- `projects`
+- `scenes`
+- `assets`
+- `jobevents`
+
+## Ders İsterleriyle Eşleşme
+
+- Prompt ile hikaye üretimi: Groq/Gemini/fallback story service
+- Veritabanına kayıt: MongoDB + Mongoose
+- En az 3 görsel: Cloud provider veya fallback görsel
+- Seslendirme: ElevenLabs veya sessiz fallback
+- Video oluşturma: Remotion + FFmpeg
+- Altyazı: Remotion subtitle layer
+- Görsel geçiş ve animasyon: Remotion sahne hareketleri, fade, zoom, overlay efektleri
+- Pipeline/otomasyon: BullMQ + Redis worker akışı
+- Sunumda kayıt kanıtı: MongoDB project, scene, asset ve job event kayıtları
+
+## Test Edilmiş Kontroller
+
+```bash
+pnpm --filter @ai-video/api typecheck
+pnpm --filter @ai-video/web build
 pnpm build
-curl http://localhost:4000/api/system/status
 ```
 
-Demo guvenilirligi icin API key olmasa bile fallback akisi korunur. Cloud servisleri calismazsa gorsel icin premium SVG sahneler, ses icin sessiz WAV fallback devreye girer ve pipeline tamamlanmaya calisir.
-
-## Ders Isterleri
-
-- LLM ile prompt/hikaye olusturma: Groq, Gemini veya fallback story service
-- Hikayeyi veritabanina kaydetme: MongoDB Project modeli
-- En az 3 gorsel olusturma: Cloud/free image providers, stok medya veya SVG fallback
-- Hikayeyi sese donusturme: Azure Speech, Edge TTS, ElevenLabs veya audio fallback
-- Ses ve gorsellerle video olusturma: Remotion render, dil bazli MP4 varyantlari
-- Gorsel gecis efektleri: Remotion fade/smooth zoom
-- Videoya altyazi ekleme: Remotion subtitle layer
-- Scrum board/story point: `SCRUM_BOARD.md`
+Son çalışan testte sistem; 3 görsel, ElevenLabs ses, altyazı ve final MP4 üretip `completed` durumuna geçmiştir.
