@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Centralized environment values keep provider keys and model choices out of route/service code.
 export const env = {
   port: Number(process.env.PORT ?? 4000),
   mongoUri: process.env.MONGODB_URI ?? "mongodb://localhost:27017/ai-video-generator",
@@ -13,21 +14,12 @@ export const env = {
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
   groqApiKey: process.env.GROQ_API_KEY ?? "",
   groqModel: process.env.GROQ_MODEL ?? "llama-3.1-8b-instant",
-  ttsProvider: process.env.VOICE_PROVIDER ?? process.env.TTS_PROVIDER ?? "auto",
-  edgeTtsVoice: process.env.EDGE_TTS_VOICE ?? "tr-TR-EmelNeural",
-  edgeTtsLang: process.env.EDGE_TTS_LANG ?? "tr-TR",
-  edgeTtsOutputFormat: process.env.EDGE_TTS_OUTPUT_FORMAT ?? "audio-24khz-48kbitrate-mono-mp3",
-  edgeTtsRate: process.env.EDGE_TTS_RATE ?? "+0%",
-  edgeTtsPitch: process.env.EDGE_TTS_PITCH ?? "+0Hz",
-  edgeTtsVolume: process.env.EDGE_TTS_VOLUME ?? "+0%",
-  edgeTtsMaxCharacters: Number(process.env.EDGE_TTS_MAX_CHARACTERS ?? 4500),
+  ttsProvider: "elevenlabs",
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
   elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID ?? "01p4omegjS2n3rSDCM5u",
   elevenLabsFallbackVoiceId: process.env.ELEVENLABS_FALLBACK_VOICE_ID ?? "JBFqnCBsd6RMkjVDRZzb",
   elevenLabsModel: process.env.ELEVENLABS_MODEL ?? "eleven_multilingual_v2",
   elevenLabsMaxCharacters: Number(process.env.ELEVENLABS_MAX_CHARACTERS ?? 4500),
-  azureSpeechKey: process.env.AZURE_SPEECH_KEY ?? "",
-  azureSpeechRegion: process.env.AZURE_SPEECH_REGION ?? "",
   imageProvider: process.env.IMAGE_PROVIDER ?? "auto",
   cloudflareAccountId: process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
   cloudflareApiToken: process.env.CLOUDFLARE_API_TOKEN ?? "",

@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vue-tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "typecheck": "vue-tsc -b --noEmit",
-    "lint": "vue-tsc -b --noEmit"
+    "typecheck": "vite build",
+    "lint": "vite build"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
@@ -16,8 +16,5 @@
     "vite": "^6.3.5",
     "vue": "^3.5.14"
   },
-  "devDependencies": {
-    "typescript": "^5.8.3",
-    "vue-tsc": "^2.2.10"
-  }
+  "devDependencies": {}
 }

@@ -4,6 +4,7 @@ import type { VideoProps } from "./types";
 
 const fallbackSceneDuration = 132;
 
+// Main Remotion composition: places scene media, audio and subtitles on one vertical timeline.
 export function AiVideo({ title, scenes, audioPath, apiBaseUrl, subtitlesEnabled = true, sceneDurationInFrames = fallbackSceneDuration, sceneDurationsInFrames = [] }: VideoProps) {
   const frame = useCurrentFrame();
   const intro = interpolate(frame, [0, 28], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
@@ -40,6 +41,7 @@ export function AiVideo({ title, scenes, audioPath, apiBaseUrl, subtitlesEnabled
   );
 }
 
+// Builds exact start/duration values so every image cut follows the scene audio length.
 function buildSceneTimings(sceneCount: number, fallbackDuration: number, sceneDurations: number[]) {
   let cursor = 0;
   return Array.from({ length: sceneCount }, (_, index) => {
@@ -50,6 +52,7 @@ function buildSceneTimings(sceneCount: number, fallbackDuration: number, sceneDu
   });
 }
 
+// One animated visual scene with Ken Burns motion, overlays, subtitle and progress bar.
 function SceneFrame({
   scene,
   index,
@@ -187,6 +190,7 @@ function SceneFrame({
   );
 }
 
+// Splits long subtitles into two readable lines for vertical mobile video.
 function splitCaption(value: string) {
   const text = value.replace(/\s+/g, " ").trim();
   if (text.length <= 34) return [text];

@@ -24,6 +24,7 @@ type MaterialMetadata = {
   query?: string;
 };
 
+// Backward-compatible helper for tests or older callers; main pipeline uses generateSceneMaterial.
 export async function generateSceneImage(projectId: string, sceneOrder: number, sceneText: string, style: string) {
   const plan: ScenePlan = {
     summary: sceneText.slice(0, 140),
@@ -34,6 +35,7 @@ export async function generateSceneImage(projectId: string, sceneOrder: number, 
   return generateSceneMaterial(projectId, sceneOrder, sceneText, style, plan, "hybrid-cloud", "auto");
 }
 
+// Tries cloud providers in order and always falls back to a designed SVG scene if they fail.
 export async function generateSceneMaterial(
   projectId: string,
   sceneOrder: number,
@@ -55,6 +57,7 @@ export async function generateSceneMaterial(
   return createFallbackMaterial(projectDir, projectId, sceneOrder, sceneText, style, plan, prompt);
 }
 
+// Final safety net: a local premium SVG keeps the demo from breaking when free APIs are down.
 async function createFallbackMaterial(projectDir: string, projectId: string, sceneOrder: number, sceneText: string, style: string, plan: ScenePlan, prompt: string): Promise<MaterialResult> {
   const filename = `scene-${sceneOrder}.svg`;
   await fs.writeFile(path.join(projectDir, filename), createPremiumSceneSvg(sceneOrder, sceneText, style, plan), "utf8");
@@ -76,6 +79,7 @@ async function createFallbackMaterial(projectDir: string, projectId: string, sce
   };
 }
 
+// Provider order stays explicit so the UI can show what source produced each scene.
 function resolveProviderOrder(requestedProvider: string, materialMode: string, style: string) {
   if (requestedProvider && requestedProvider !== "auto") {
     if (requestedProvider === "designed") return ["fallback"];
@@ -103,6 +107,7 @@ async function tryProvider(provider: string, projectDir: string, sceneOrder: num
   return null;
 }
 
+// Builds a literal prompt from the scene text; this reduces cute/cartoon drift on simple prompts.
 function buildImagePrompt(sceneText: string, style: string) {
   const styleIntent = resolvePromptStyleIntent(sceneText, style);
   const requiredSubjects = extractRequiredSubjects(sceneText);
@@ -120,9 +125,10 @@ function buildImagePrompt(sceneText: string, style: string) {
   ].join(", ");
 }
 
+// Adds hard subject/action/setting locks before sending the prompt to external image APIs.
 function strengthenVisualPrompt(prompt: string, sceneText: string, style: string) {
   const styleIntent = resolvePromptStyleIntent(`${sceneText} ${prompt}`, style);
-  const requiredSubjects = extractRequiredSubjects(`${sceneText} ${prompt}`);
+  const requiredSubjects = extractRequiredSubjects(sceneText);
   const sceneAction = extractSceneAction(sceneText);
   const setting = extractSimpleSetting(sceneText);
   return [
@@ -235,16 +241,16 @@ async function tryStockImage(projectDir: string, sceneOrder: number, plan: Scene
 function extractRequiredSubjects(source: string) {
   const lower = source.toLocaleLowerCase("tr-TR");
   const subjects: string[] = [];
-  if (/\bkedi\b|cat/.test(lower)) subjects.push("one cat clearly visible");
-  if (/\bköpek\b|\bkopek\b|dog/.test(lower)) subjects.push("one dog clearly visible");
+  if (/\bkedi\b|\bcat\b/.test(lower)) subjects.push("one cat clearly visible");
+  if (/\bköpek\b|\bkopek\b|\bdog\b/.test(lower)) subjects.push("one dog clearly visible");
   if (/mars/.test(lower)) subjects.push("red Mars landscape clearly visible");
-  if (/uzay gemisi|spaceship|space ship|roket|rocket/.test(lower)) subjects.push("small futuristic spaceship clearly visible");
-  if (/uzay|space|astronaut|space suit|spacesuit/.test(lower)) subjects.push("futuristic space suits or sci-fi space details");
-  if (/kano|canoe|kayak/.test(lower)) subjects.push("small canoe clearly visible");
-  if (/koy|bay|sahil|beach|sea|deniz/.test(lower)) subjects.push("coastline or water clearly visible");
-  if (/kalem|pen/.test(lower)) subjects.push("the pen product clearly visible");
-  if (/araba|car|otomobil/.test(lower)) subjects.push("the car clearly visible");
-  if (/çocuk|cocuk|child|boy|girl/.test(lower)) subjects.push("the child clearly visible");
+  if (/uzay gemisi|\bspaceship\b|\bspace ship\b|roket|\brocket\b/.test(lower)) subjects.push("small futuristic spaceship clearly visible");
+  if (/uzay|\bspace\b|\bastronaut\b|\bspace suit\b|\bspacesuit\b/.test(lower)) subjects.push("futuristic space suits or sci-fi space details");
+  if (/kano|\bcanoe\b|\bkayak\b/.test(lower)) subjects.push("small canoe clearly visible");
+  if (/koy|\bbay\b|sahil|\bbeach\b|\bsea\b|deniz/.test(lower)) subjects.push("coastline or water clearly visible");
+  if (/kalem|\bpen\b/.test(lower)) subjects.push("the pen product clearly visible");
+  if (/araba|\bcar\b|otomobil/.test(lower)) subjects.push("the car clearly visible");
+  if (/çocuk|cocuk|\bchild\b|\bboy\b|\bgirl\b/.test(lower)) subjects.push("the child clearly visible");
   if (!subjects.length) subjects.push("the main subject described by the prompt clearly visible");
   return subjects.join("; ");
 }
@@ -322,7 +328,7 @@ function resolvePromptStyleIntent(source: string, style: string) {
   if (/fütüristik|futuristic|cyberpunk|sci[- ]?fi|bilim kurgu|gelecek|neon|robot|mars|uzay|space|hologram/.test(lower)) {
     return "futuristic cinematic sci-fi style, high-tech architecture or environment, neon accents, advanced materials, dramatic lighting, not a cute cartoon";
   }
-  if (/ürün|urun|product|reklam|commercial|tanıtım|tanitim|kalem|araba|car|dealership/.test(lower)) {
+  if (/ürün|urun|\bproduct\b|reklam|\bcommercial\b|tanıtım|tanitim|kalem|araba|\bcar\b|\bdealership\b/.test(lower)) {
     return "premium realistic commercial style, real-world product/lifestyle photography, clean modern composition, natural reflections and materials";
   }
   if (/çizgi film|cizgi film|cartoon|anime|storybook|masal|illustration|illustrated/.test(lower)) {

@@ -5,6 +5,7 @@ import { env } from "../config/env.js";
 
 const router = Router();
 
+// Health endpoint for the frontend: database, queue counts and configured providers.
 router.get("/status", async (_request, response, next) => {
   try {
     const counts = await videoQueue.getJobCounts("waiting", "active", "completed", "failed", "delayed");
@@ -20,7 +21,6 @@ router.get("/status", async (_request, response, next) => {
         pollinations: Boolean(env.pollinationsApiKey),
         huggingface: Boolean(env.huggingFaceToken),
         stock: Boolean(env.pexelsApiKey || env.pixabayApiKey),
-        azureSpeech: Boolean(env.azureSpeechKey && env.azureSpeechRegion),
         elevenlabs: Boolean(env.elevenLabsApiKey),
         video: "remotion"
       }

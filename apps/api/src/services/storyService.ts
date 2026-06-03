@@ -7,17 +7,6 @@ export type GeneratedStory = {
   scenes: string[];
 };
 
-export type LanguageCode = "tr" | "en" | "de" | "es";
-
-export const supportedLanguages: LanguageCode[] = ["tr", "en", "de", "es"];
-
-export const languageLabels: Record<LanguageCode, string> = {
-  tr: "Türkçe",
-  en: "English",
-  de: "Deutsch",
-  es: "Español"
-};
-
 export type ScenePlan = {
   summary: string;
   visualPrompt: string;
@@ -25,19 +14,7 @@ export type ScenePlan = {
   searchTerms: string[];
 };
 
-export type VariantCopy = {
-  language: LanguageCode;
-  title: string;
-  story: string;
-  scenes: string[];
-  exportCaption: string;
-  exportHashtags: string[];
-};
-
-export function resolveSceneCountForContent(content: string, requestedCount?: number | null) {
-  return 3;
-}
-
+// Main text-generation entry: Groq first, Gemini fallback, deterministic fallback last.
 export async function generateStory(theme: string, style: string, ageGroup: string, sceneCount: number): Promise<GeneratedStory> {
   const prompt = buildStoryPrompt(theme, style, ageGroup, sceneCount);
   const providers = env.aiProvider === "auto" ? ["groq", "gemini"] : [env.aiProvider];
@@ -57,6 +34,7 @@ export async function generateStory(theme: string, style: string, ageGroup: stri
   return fallbackStory(theme, style, ageGroup, sceneCount);
 }
 
+// Produces strict English image prompts so Pollinations/HF/Cloudflare understand the visual target better.
 export async function generateScenePlans(theme: string, style: string, scenes: string[]): Promise<ScenePlan[]> {
   const visualProfile = buildVisualProfile(theme, style);
   const subjectLock = buildCoreSubjectLock(theme, scenes);
@@ -87,65 +65,7 @@ export async function generateScenePlans(theme: string, style: string, scenes: s
   return scenes.map((scene) => normalizeScenePlan(null, scene, style, visualProfile, subjectLock, styleIntent));
 }
 
-export async function generateLanguageVariants(story: GeneratedStory, languages: LanguageCode[], targetPlatform: string): Promise<VariantCopy[]> {
-  const variants: VariantCopy[] = [];
-  for (const language of languages) {
-    if (language === "tr") {
-      variants.push({
-        language,
-        title: story.title,
-        story: story.story,
-        scenes: story.scenes,
-        exportCaption: `${story.title}\n\n${story.story.slice(0, 180)}`,
-        exportHashtags: defaultHashtags(language, targetPlatform)
-      });
-      continue;
-    }
-
-    const prompt = [
-      `Translate and localize this short social video story to ${languageLabels[language]}.`,
-      "Keep it natural, warm, short, and suitable for voiceover.",
-      "Return only valid JSON without markdown.",
-      "Schema: {\"title\":\"...\",\"story\":\"...\",\"scenes\":[\"...\"],\"exportCaption\":\"...\",\"exportHashtags\":[\"...\"]}.",
-      `Target platform: ${targetPlatform}`,
-      `Source title: ${story.title}`,
-      `Source story: ${story.story}`,
-      `Source scenes: ${JSON.stringify(story.scenes)}`
-    ].join("\n");
-
-    const translated = await tryGroqJson<Omit<VariantCopy, "language">>(
-      prompt,
-      "You are a precise multilingual video localization assistant."
-    );
-    variants.push({
-      language,
-      title: translated?.title || fallbackLocalizedTitle(story.title, language),
-      story: translated?.story || story.story,
-      scenes: translated?.scenes?.length ? translated.scenes.slice(0, story.scenes.length) : story.scenes,
-      exportCaption: translated?.exportCaption || fallbackLocalizedTitle(story.title, language),
-      exportHashtags: translated?.exportHashtags?.length ? translated.exportHashtags.slice(0, 8) : defaultHashtags(language, targetPlatform)
-    });
-  }
-  return variants;
-}
-
-export async function generateExportCopy(title: string, story: string, language: LanguageCode, targetPlatform: string) {
-  const prompt = [
-    `Create social media export copy in ${languageLabels[language]}.`,
-    "Return only valid JSON: {\"caption\":\"...\",\"hashtags\":[\"...\"]}.",
-    "Caption must be short, punchy and social-first: 1 hook sentence, 1 context sentence, 1 CTA.",
-    "Do not sound like an AI assistant, a news bulletin, or a school essay.",
-    `Platform: ${targetPlatform}`,
-    `Title: ${title}`,
-    `Story: ${story}`
-  ].join("\n");
-  const generated = await tryGroqJson<{ caption?: string; hashtags?: string[] }>(prompt, "You write concise social captions.");
-  return {
-    caption: generated?.caption || `${title}\n\n${story.slice(0, 180)}`,
-    hashtags: generated?.hashtags?.length ? generated.hashtags.slice(0, 8) : defaultHashtags(language, targetPlatform)
-  };
-}
-
+// The prompt intentionally forces short, concrete scenes because visuals and audio both depend on it.
 function buildStoryPrompt(theme: string, style: string, ageGroup: string, sceneCount: number) {
   return [
     "Türkçe, 15-20 saniyelik dikey video için çok basit ve tutarlı bir mini hikaye üret.",
@@ -216,6 +136,7 @@ async function tryGroqStory(prompt: string, sceneCount: number) {
   }
 }
 
+// Shared helper for JSON-only Groq tasks such as scene planning.
 async function tryGroqJson<T>(prompt: string, system: string): Promise<T | null> {
   if (!env.groqApiKey || !["auto", "groq"].includes(env.aiProvider)) return null;
   try {
@@ -244,6 +165,7 @@ async function tryGroqJson<T>(prompt: string, system: string): Promise<T | null>
   }
 }
 
+// Adds subject/style locks around model output so scene prompts do not drift away from the user prompt.
 function normalizeScenePlan(
   plan: ScenePlan | null | undefined,
   scene: string,
@@ -278,6 +200,7 @@ function normalizeScenePlan(
   };
 }
 
+// Converts user style words into one reusable visual direction for every generated scene.
 export function buildVisualProfile(theme: string, style: string) {
   const base = "vertical 9:16 social short, prompt-directed visual style, same main subjects, no text, no watermark, no logo";
   const lowerTheme = theme.toLocaleLowerCase("tr-TR");
@@ -366,24 +289,6 @@ function buildSearchTerms(scene: string) {
   if (lower.includes("şehir") || lower.includes("robot")) return ["futuristic city", "technology", "cinematic lights"];
   if (lower.includes("orman") || lower.includes("doğa")) return ["forest sunlight", "nature", "adventure"];
   return ["cinematic background", "dreamy lights", "storytelling"];
-}
-
-function defaultHashtags(language: LanguageCode, targetPlatform: string) {
-  const common = targetPlatform === "shorts" ? ["#Shorts"] : targetPlatform === "reels" ? ["#Reels"] : ["#TikTok"];
-  const localized: Record<LanguageCode, string[]> = {
-    tr: ["#gündem", "#tarih", "#spor", "#keşfet"],
-    en: ["#turkey", "#history", "#sports", "#story"],
-    de: ["#tuerkei", "#geschichte", "#sport", "#story"],
-    es: ["#turquia", "#historia", "#deporte", "#story"]
-  };
-  return [...common, ...localized[language]];
-}
-
-function fallbackLocalizedTitle(title: string, language: LanguageCode) {
-  if (language === "en") return `${title} Story`;
-  if (language === "de") return `${title} Geschichte`;
-  if (language === "es") return `${title} Historia`;
-  return title;
 }
 
 function parseGeneratedStory(text: string, sceneCount: number): GeneratedStory | null {
