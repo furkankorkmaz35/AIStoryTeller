@@ -7,14 +7,14 @@ export const apiRoot = path.resolve(path.dirname(currentFile), "../..");
 export const publicRoot = path.join(apiRoot, "public");
 export const outputsRoot = path.resolve(process.env.OUTPUTS_DIR ?? path.join(process.cwd(), "outputs"));
 
-// Every project gets its own output folder so MongoDB paths and files stay traceable.
+// Her proje kendi output klasörünü alır; MongoDB'deki dosya yolları fiziksel dosyalarla kolay eşleşir.
 export async function ensureProjectOutput(projectId: string) {
   const projectDir = path.join(outputsRoot, projectId);
   await fs.mkdir(projectDir, { recursive: true });
   return projectDir;
 }
 
-// Stored in MongoDB; served by Express from the /outputs static route.
+// MongoDB'ye bu public path yazılır; Express de aynı dosyayı /outputs statik rotasından servis eder.
 export function publicPathFor(projectId: string, filename: string) {
   return `/outputs/${projectId}/${filename}`;
 }

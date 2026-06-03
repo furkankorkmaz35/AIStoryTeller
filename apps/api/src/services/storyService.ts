@@ -14,7 +14,7 @@ export type ScenePlan = {
   searchTerms: string[];
 };
 
-// Main text-generation entry: Groq first, Gemini fallback, deterministic fallback last.
+// Ana metin üretim noktasıdır: önce Groq denenir, olmazsa Gemini, o da olmazsa deterministik fallback hikaye kullanılır.
 export async function generateStory(theme: string, style: string, ageGroup: string, sceneCount: number): Promise<GeneratedStory> {
   const prompt = buildStoryPrompt(theme, style, ageGroup, sceneCount);
   const providers = env.aiProvider === "auto" ? ["groq", "gemini"] : [env.aiProvider];
@@ -34,7 +34,7 @@ export async function generateStory(theme: string, style: string, ageGroup: stri
   return fallbackStory(theme, style, ageGroup, sceneCount);
 }
 
-// Produces strict English image prompts so Pollinations/HF/Cloudflare understand the visual target better.
+// Görsel modeller için sıkı ve İngilizce prompt üretir; Pollinations/HF/Cloudflare sahnedeki hedefi daha doğru anlar.
 export async function generateScenePlans(theme: string, style: string, scenes: string[]): Promise<ScenePlan[]> {
   const visualProfile = buildVisualProfile(theme, style);
   const subjectLock = buildCoreSubjectLock(theme, scenes);
@@ -65,7 +65,7 @@ export async function generateScenePlans(theme: string, style: string, scenes: s
   return scenes.map((scene) => normalizeScenePlan(null, scene, style, visualProfile, subjectLock, styleIntent));
 }
 
-// The prompt intentionally forces short, concrete scenes because visuals and audio both depend on it.
+// Bu prompt bilerek kısa ve somut sahneler ister; çünkü görsel üretimi, altyazı ve seslendirme aynı sahne cümlelerine dayanır.
 function buildStoryPrompt(theme: string, style: string, ageGroup: string, sceneCount: number) {
   return [
     "Türkçe, 15-20 saniyelik dikey video için çok basit ve tutarlı bir mini hikaye üret.",
@@ -136,7 +136,7 @@ async function tryGroqStory(prompt: string, sceneCount: number) {
   }
 }
 
-// Shared helper for JSON-only Groq tasks such as scene planning.
+// Groq'tan sadece JSON beklenen görevlerde kullanılır; sahne planı gibi çıktılar parse edilebilir formatta döner.
 async function tryGroqJson<T>(prompt: string, system: string): Promise<T | null> {
   if (!env.groqApiKey || !["auto", "groq"].includes(env.aiProvider)) return null;
   try {
@@ -165,7 +165,7 @@ async function tryGroqJson<T>(prompt: string, system: string): Promise<T | null>
   }
 }
 
-// Adds subject/style locks around model output so scene prompts do not drift away from the user prompt.
+// Modelin ürettiği promptun etrafına konu ve stil kilitleri ekler; sahne, kullanıcı promptundan uzaklaşmasın diye koruma sağlar.
 function normalizeScenePlan(
   plan: ScenePlan | null | undefined,
   scene: string,
@@ -200,7 +200,7 @@ function normalizeScenePlan(
   };
 }
 
-// Converts user style words into one reusable visual direction for every generated scene.
+// Kullanıcının stil kelimelerini ortak bir görsel yöne çevirir; tüm sahnelerde daha tutarlı atmosfer oluşur.
 export function buildVisualProfile(theme: string, style: string) {
   const base = "vertical 9:16 social short, prompt-directed visual style, same main subjects, no text, no watermark, no logo";
   const lowerTheme = theme.toLocaleLowerCase("tr-TR");

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { env } from "./env.js";
 
-// Shared MongoDB connection used by both Express API and BullMQ worker.
+// Express API ve BullMQ worker aynı MongoDB bağlantısını kullanır; böylece kayıtlar ve üretim adımları aynı veritabanında birleşir.
 export async function connectDatabase() {
   mongoose.set("strictQuery", true);
   await mongoose.connect(env.mongoUri);

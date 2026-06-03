@@ -3,7 +3,7 @@ import { createProject, getProject, listProjects } from "../lib/api";
 import { statusSteps } from "../constants/projectStatus";
 
 export function useProjectStudio() {
-  // Central state for the creator screen; components stay presentational and small.
+  // Oluşturma ekranının merkezi state'i burada tutulur; componentler sadece ekrana basar ve daha küçük kalır.
   const projects = ref([]);
   const selected = ref(null);
   const loading = ref(false);
@@ -16,7 +16,7 @@ export function useProjectStudio() {
     subtitlesEnabled: true
   });
 
-  // Derived media fields feed the output panel without duplicating selection logic in Vue templates.
+  // Seçili projenin video/ses/görsel alanları burada hesaplanır; template içinde aynı seçme mantığı tekrar yazılmaz.
   const selectedVideo = computed(() => selected.value?.project.videoPath ?? "");
   const selectedAudio = computed(() => selected.value?.project.audioPath ?? selected.value?.assets.find((asset) => asset.type === "audio")?.path ?? "");
   const selectedImageScenes = computed(() => selected.value?.scenes.filter((scene) => scene.imagePath || scene.materialPath) ?? []);
@@ -41,7 +41,7 @@ export function useProjectStudio() {
     return Math.max(0, Math.round((currentStepIndex.value / (statusSteps.length - 1)) * 100));
   });
 
-  // Refresh also re-hydrates the selected project, so pipeline progress updates during rendering.
+  // Liste yenilenirken seçili proje de tekrar çekilir; render devam ederken pipeline yüzdesi ve assetler canlı güncellenir.
   async function refreshProjects() {
     try {
       apiError.value = "";
@@ -61,7 +61,7 @@ export function useProjectStudio() {
     galleryPage.value = Math.min(galleryPageCount.value, Math.max(1, galleryPage.value + direction));
   }
 
-  // Loads MongoDB detail document plus related scenes, assets and job logs for the proof panel.
+  // Seçilen projenin MongoDB kaydını, sahnelerini, assetlerini ve job loglarını getirir; çıktı paneli bunları kanıt olarak gösterir.
   async function selectProject(id, showLoader = true) {
     if (showLoader) loading.value = true;
     try {
@@ -74,7 +74,7 @@ export function useProjectStudio() {
     }
   }
 
-  // Starts the backend BullMQ pipeline; all heavy work continues in the worker.
+  // Backend'e proje oluşturma isteği gönderir; ağır üretim işi API'de değil BullMQ worker içinde arka planda devam eder.
   async function submitProject() {
     creating.value = true;
     error.value = "";

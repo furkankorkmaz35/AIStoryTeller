@@ -8,7 +8,7 @@ defineProps({
 </script>
 
 <template>
-  <!-- Static navigation shell plus a tiny live queue/database indicator. -->
+  <!-- Sol menü uygulamanın stüdyo hissini verir; alttaki küçük gösterge kuyruk/veritabanı durumunu özetler. -->
   <aside class="sidebar">
     <div class="brand-mark">
       <div class="brand-icon"><Clapperboard :size="24" /></div>

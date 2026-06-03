@@ -18,14 +18,14 @@ import { buildVisualProfile, generateScenePlans, generateStory } from "./storySe
 import { renderProjectVideo } from "./videoService.js";
 import { ensureProjectOutput, publicPathFor } from "../utils/paths.js";
 
-// Dispatches BullMQ job names to small pipeline functions.
+// BullMQ'dan gelen job adını ilgili üretim fonksiyonuna yönlendirir; worker bu sayede uzun if/else blokları içermez.
 export async function runPipelineStep(jobName: string, projectId: string) {
   const step = pipelineSteps[jobName];
   if (!step) throw new Error(`Unknown pipeline job: ${jobName}`);
   await step(projectId);
 }
 
-// Step 1: turn the user prompt into a short story and exactly three scenes.
+// Adım 1: Kullanıcının promptunu kısa bir hikayeye ve tam 3 sahneye çevirir; sonraki tüm görsel/ses işlemleri bu sahnelere bağlıdır.
 async function generateStoryStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_story", errorMessage: "" });
   await logJob(projectId, "story", "running", "Kısa hikaye ve 3 sahne hazırlanıyor.");
@@ -52,7 +52,7 @@ async function generateStoryStep(projectId: string) {
   await enqueueScenesAndPrompts(projectId);
 }
 
-// Step 2: transform each narration scene into an English visual prompt.
+// Adım 2: Her Türkçe sahneyi görsel modellerin daha iyi anlayacağı İngilizce ve net görsel promptlara dönüştürür.
 async function generateScenePromptsStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_scenes" });
   await logJob(projectId, "prompts", "running", "Sahneler için görsel promptları hazırlanıyor.");
@@ -78,7 +78,7 @@ async function generateScenePromptsStep(projectId: string) {
   await enqueueVisualCandidates(projectId);
 }
 
-// Step 3: generate or fetch scene images, then persist them as MongoDB assets.
+// Adım 3: Her sahne için cloud görsel üretimi veya fallback görsel seçimi yapar, sonucu hem Scene hem Asset olarak MongoDB'ye yazar.
 async function generateVisualsStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_visuals" });
   await logJob(projectId, "visuals", "running", "Görseller üretiliyor.");
@@ -130,14 +130,14 @@ async function generateVisualsStep(projectId: string) {
   await enqueueMaterialSelection(projectId);
 }
 
-// Step 4: selection is simple now because each scene stores its best usable material.
+// Adım 4: Şimdiki sürümde her sahne en iyi kullanılabilir materyalini zaten saklar; bu adım akışın okunabilir checkpoint'idir.
 async function selectMaterialsStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "selecting_materials" });
   await logJob(projectId, "materials", "completed", "Görsel materyaller kaydedildi.");
   await enqueueAudioGeneration(projectId);
 }
 
-// Step 5: create scene-level Turkish narration so audio duration can drive video timing.
+// Adım 5: Seslendirmeyi sahne sahne üretir; böylece her sahnenin süresi ölçülür ve video geçişleri sese göre ayarlanır.
 async function generateAudioStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_audio" });
   await logJob(projectId, "audio", "running", "ElevenLabs ile sahne sahne ses hazırlanıyor.");
@@ -164,7 +164,7 @@ async function generateAudioStep(projectId: string) {
   await enqueueSubtitleGeneration(projectId);
 }
 
-// Step 6: subtitles reuse the same scene text as narration to avoid timing/content drift.
+// Adım 6: Altyazı metni, seslendirmede kullanılan sahne cümlelerinden üretilir; ses, altyazı ve hikaye aynı kalır.
 async function generateSubtitlesStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "generating_subtitles" });
   const project = await ProjectModel.findById(projectId).orFail();
@@ -190,7 +190,7 @@ async function generateSubtitlesStep(projectId: string) {
   await enqueueVideoRender(projectId);
 }
 
-// Step 7: Remotion renders the final MP4 using images, subtitles and measured audio durations.
+// Adım 7: Remotion; görselleri, altyazıları ve ölçülmüş ses sürelerini kullanarak final MP4 videoyu render eder.
 async function renderVideoStep(projectId: string) {
   await ProjectModel.findByIdAndUpdate(projectId, { status: "rendering_video" });
   await logJob(projectId, "video", "running", "Remotion MP4 render başlıyor.");
@@ -225,7 +225,7 @@ async function renderVideoStep(projectId: string) {
   await logJob(projectId, "video", "completed", "MP4 video hazır.");
 }
 
-// Keeps subtitles short enough for vertical video without changing the narrated sentence.
+// Altyazıyı dikey videoda taşmayacak kadar kısaltır; anlatılan cümlenin ana anlamını bozmadan ilk cümleyi korur.
 function shortSubtitle(value: string) {
   const cleaned = value.replace(/\s+/g, " ").trim();
   const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] || cleaned;
@@ -236,7 +236,7 @@ function shortSubtitle(value: string) {
   return `${cut.slice(0, breakPoint).trim()}...`;
 }
 
-// Removes model-produced scene labels before they are stored as narration evidence.
+// Model bazen "Sahne 1:" gibi etiketler üretir; bu yardımcı fonksiyon o etiketleri ses/metin kanıtından temizler.
 function cleanNarrationLine(value: string) {
   return value
     .replace(/^\s*(sahne|scene)\s*\d+\s*[:.-]?\s*/i, "")

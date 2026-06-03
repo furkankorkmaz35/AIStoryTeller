@@ -24,7 +24,7 @@ type MaterialMetadata = {
   query?: string;
 };
 
-// Backward-compatible helper for tests or older callers; main pipeline uses generateSceneMaterial.
+// Eski testler veya yardımcı çağrılar için bırakıldı; ana video pipeline artık generateSceneMaterial fonksiyonunu kullanır.
 export async function generateSceneImage(projectId: string, sceneOrder: number, sceneText: string, style: string) {
   const plan: ScenePlan = {
     summary: sceneText.slice(0, 140),
@@ -35,7 +35,7 @@ export async function generateSceneImage(projectId: string, sceneOrder: number, 
   return generateSceneMaterial(projectId, sceneOrder, sceneText, style, plan, "hybrid-cloud", "auto");
 }
 
-// Tries cloud providers in order and always falls back to a designed SVG scene if they fail.
+// Görsel üretimi için provider'ları sırayla dener; hepsi başarısız olursa sahneyle ilişkili tasarımsal SVG fallback üretir.
 export async function generateSceneMaterial(
   projectId: string,
   sceneOrder: number,
@@ -57,7 +57,7 @@ export async function generateSceneMaterial(
   return createFallbackMaterial(projectDir, projectId, sceneOrder, sceneText, style, plan, prompt);
 }
 
-// Final safety net: a local premium SVG keeps the demo from breaking when free APIs are down.
+// Son güvenli katman budur: ücretsiz cloud API'ler çalışmasa bile demo boş kalmaz, sahne metnine bağlı yerel bir görsel oluşur.
 async function createFallbackMaterial(projectDir: string, projectId: string, sceneOrder: number, sceneText: string, style: string, plan: ScenePlan, prompt: string): Promise<MaterialResult> {
   const filename = `scene-${sceneOrder}.svg`;
   await fs.writeFile(path.join(projectDir, filename), createPremiumSceneSvg(sceneOrder, sceneText, style, plan), "utf8");
@@ -79,7 +79,7 @@ async function createFallbackMaterial(projectDir: string, projectId: string, sce
   };
 }
 
-// Provider order stays explicit so the UI can show what source produced each scene.
+// Provider sırası açık tutulur; böylece hangi sahnenin Cloudflare/HF/Pollinations/fallback ile üretildiği UI'da anlaşılır.
 function resolveProviderOrder(requestedProvider: string, materialMode: string, style: string) {
   if (requestedProvider && requestedProvider !== "auto") {
     if (requestedProvider === "designed") return ["fallback"];
@@ -107,7 +107,7 @@ async function tryProvider(provider: string, projectDir: string, sceneOrder: num
   return null;
 }
 
-// Builds a literal prompt from the scene text; this reduces cute/cartoon drift on simple prompts.
+// Sahne metninden düz ve somut bir görsel prompt kurar; basit promptlarda modelin çizgi filme veya alakasız tarza kaymasını azaltır.
 function buildImagePrompt(sceneText: string, style: string) {
   const styleIntent = resolvePromptStyleIntent(sceneText, style);
   const requiredSubjects = extractRequiredSubjects(sceneText);
@@ -125,7 +125,7 @@ function buildImagePrompt(sceneText: string, style: string) {
   ].join(", ");
 }
 
-// Adds hard subject/action/setting locks before sending the prompt to external image APIs.
+// Dış görsel API'lerine gitmeden önce konu, aksiyon ve mekan kilidi ekler; örneğin "kedi" yazıldıysa görselde kedi görünmelidir.
 function strengthenVisualPrompt(prompt: string, sceneText: string, style: string) {
   const styleIntent = resolvePromptStyleIntent(`${sceneText} ${prompt}`, style);
   const requiredSubjects = extractRequiredSubjects(sceneText);

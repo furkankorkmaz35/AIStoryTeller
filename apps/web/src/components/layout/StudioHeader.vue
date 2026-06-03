@@ -7,7 +7,7 @@ defineProps({
 </script>
 
 <template>
-  <!-- First-screen title and live studio status for the demo audience. -->
+  <!-- İlk ekranda projenin amacı ve stüdyo durumu görünür; sunumda uygulamanın hazır olup olmadığı hemen anlaşılır. -->
   <header class="topbar">
     <div>
       <span class="eyebrow">Creative video studio</span>

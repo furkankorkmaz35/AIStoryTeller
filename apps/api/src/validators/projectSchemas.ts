@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Request validation is kept outside controllers so API contracts stay visible and testable.
+// Gelen request kuralları controller dışında tutulur; API sözleşmesi tek dosyada görünür ve kolay test edilir.
 export const createProjectSchema = z.object({
   theme: z.string().trim().min(2),
   style: z.enum(["storybook", "cartoon", "cinematic", "educational"]).default("cinematic"),

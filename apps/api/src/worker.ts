@@ -7,7 +7,7 @@ import { runPipelineStep } from "./services/pipelineService.js";
 
 await connectDatabase();
 
-// Worker is deliberately thin: BullMQ receives jobs, pipelineService performs the real work.
+// Worker dosyası bilinçli olarak ince tutuldu: BullMQ sadece işi yakalar, asıl üretim adımları pipelineService içinde çalışır.
 const worker = new Worker(
   "video-pipeline",
   async (job) => {
@@ -22,7 +22,7 @@ const worker = new Worker(
   { connection: redisConnection, concurrency: 1 }
 );
 
-// Stores failures in MongoDB so the frontend can show a clear status instead of hanging forever.
+// Bir adım patlarsa proje MongoDB'de "failed" yapılır; böylece frontend sonsuz beklemek yerine net hata durumunu gösterir.
 async function markProjectAsFailed(projectId: string, stepName: string, error: unknown) {
   const rawMessage = error instanceof Error ? error.message : "Bilinmeyen worker hatası";
   const message = rawMessage.length > 420 ? `${rawMessage.slice(0, 420)}...` : rawMessage;

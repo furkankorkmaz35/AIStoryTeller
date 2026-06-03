@@ -11,7 +11,7 @@ await connectDatabase();
 
 const app = express();
 
-// Static outputs expose generated MP4/image/audio files to the Vue preview panel.
+// Üretilen MP4, görsel ve ses dosyaları /outputs altında statik servis edilir; Vue paneli bu dosyaları buradan oynatır.
 app.use(cors());
 app.use(express.json({ limit: "90mb" }));
 app.use("/outputs", express.static(outputsRoot));
@@ -20,11 +20,11 @@ app.get("/health", (_request, response) => {
   response.json({ ok: true, service: "ai-video-api" });
 });
 
-// API is intentionally small for the course demo: projects and provider/system status.
+// Ders demosu için API yüzeyi sade tutuldu: proje oluşturma/listeleme ve sistem-provider durumu yeterli.
 app.use("/api/projects", projectsRouter);
 app.use("/api/system", systemRouter);
 
-// Central error shape keeps frontend error handling simple.
+// Tüm hatalar tek JSON formatına çevrilir; frontend farklı hata tipleriyle uğraşmadan kullanıcıya mesaj gösterir.
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   console.error(error);
   const message = error instanceof Error ? error.message : "Unexpected server error";

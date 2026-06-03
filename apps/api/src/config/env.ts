@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Centralized environment values keep provider keys and model choices out of route/service code.
+// Ortam değişkenleri tek yerde toplanır; route ve servis dosyaları API key/model ayarı gibi detaylarla kirlenmez.
 export const env = {
   port: Number(process.env.PORT ?? 4000),
   mongoUri: process.env.MONGODB_URI ?? "mongodb://localhost:27017/ai-video-generator",

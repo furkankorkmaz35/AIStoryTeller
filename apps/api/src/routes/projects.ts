@@ -3,7 +3,7 @@ import { createProject, getProject, listProjects } from "../controllers/projectC
 
 const router = Router();
 
-// Minimal project API: create a video job, list recent jobs, inspect one job in detail.
+// Proje API'si üç temel işi yapar: video üretimini başlatır, son işleri listeler ve seçilen işin detayını döner.
 router.post("/", createProject);
 router.get("/", listProjects);
 router.get("/:id", getProject);

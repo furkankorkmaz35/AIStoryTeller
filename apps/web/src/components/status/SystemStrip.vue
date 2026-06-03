@@ -7,7 +7,7 @@ defineProps({
 </script>
 
 <template>
-  <!-- Compact infrastructure strip: useful for showing MongoDB/queue status during presentation. -->
+  <!-- Sunumda teknik altyapıyı göstermek için kısa durum şeridi: kayıt, kuyruk, hikaye ve görsel akışı. -->
   <section class="system-strip" aria-label="Arka plan durumu">
     <div class="system-chip depth-card">
       <span class="pulse-dot" :class="{ online: systemStatus?.database === 'connected' }"></span>

@@ -20,7 +20,7 @@ const defaultProps: VideoProps = {
   ]
 };
 
-// Remotion entry: renderer selects this composition and injects real project props at render time.
+// Remotion giriş noktasıdır; renderer bu composition'ı seçer ve gerçek proje verilerini render sırasında enjekte eder.
 export function RemotionRoot() {
   return (
     <Composition

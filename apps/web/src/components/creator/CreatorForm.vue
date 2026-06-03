@@ -11,7 +11,7 @@ const emit = defineEmits(["submit", "toggleSubtitles"]);
 </script>
 
 <template>
-  <!-- The creator stays intentionally small: one prompt, subtitles, and one clear action. -->
+  <!-- Kullanıcının kafası karışmasın diye form sade tutuldu: bir prompt alanı, altyazı seçimi ve tek oluştur butonu. -->
   <form class="creator-panel composer-card depth-card" @submit.prevent="emit('submit')">
     <div class="composer-head">
       <div class="section-title">

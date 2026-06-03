@@ -3,7 +3,7 @@ import { Mic2 } from "lucide-vue-next";
 </script>
 
 <template>
-  <!-- Makes the active voice strategy explicit without exposing provider configuration controls. -->
+  <!-- Ses stratejisini sade biçimde açıklar; kullanıcı provider ayarlarıyla uğraşmadan ElevenLabs modunu görür. -->
   <section class="notice-card depth-card voice-note">
     <Mic2 :size="20" />
     <div>

@@ -46,7 +46,7 @@ const {
 
 const { systemStatus, refreshSystemStatus } = useSystemStatus();
 
-// Keeps gallery, selected project detail and queue health fresh while the video is rendering.
+// Video render edilirken galeri, seçili proje detayı ve kuyruk sağlığı düzenli yenilenir; kullanıcı ilerlemeyi canlı görür.
 async function refreshWorkspace() {
   await Promise.all([refreshProjects(), refreshSystemStatus()]);
 }

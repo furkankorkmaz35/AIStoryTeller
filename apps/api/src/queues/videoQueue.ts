@@ -7,7 +7,7 @@ export const videoQueue = new Queue("video-pipeline", {
 
 const options = { removeOnComplete: 50, removeOnFail: 50 };
 
-// Every pipeline step is a small BullMQ job, so failures are visible in logs and retryable.
+// Her pipeline adımı ayrı küçük BullMQ işi olarak tutulur; hata olursa hangi adımda kaldığı loglardan anlaşılır.
 async function enqueue(name: string, projectId: string) {
   await videoQueue.add(name, { projectId }, options);
 }

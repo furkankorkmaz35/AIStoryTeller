@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-// Each pipeline status message is stored here and shown in the frontend proof panel.
+// Pipeline boyunca oluşan her okunabilir olay burada saklanır; frontend bu kayıtlarla hocaya üretim akışını kanıtlar.
 const jobEventSchema = new Schema(
   {
     projectId: { type: Types.ObjectId, ref: "Project", required: true, index: true },

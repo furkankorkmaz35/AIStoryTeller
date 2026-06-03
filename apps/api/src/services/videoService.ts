@@ -11,7 +11,7 @@ import type { VideoProps } from "../remotion/types.js";
 const execFileAsync = promisify(execFile);
 const fps = 30;
 
-// Renders one final MP4. Audio duration and scene durations are used as the timeline source.
+// Tek final MP4 üretir; zaman çizelgesinde ana kaynak olarak ses süresi ve sahne süreleri kullanılır.
 export async function renderProjectVideo(projectId: string, props: Omit<VideoProps, "apiBaseUrl">, outputName = "final.mp4") {
   const projectDir = await ensureProjectOutput(projectId);
   const outputLocation = path.join(projectDir, outputName);
@@ -48,7 +48,7 @@ export async function renderProjectVideo(projectId: string, props: Omit<VideoPro
   return publicPathFor(projectId, outputName);
 }
 
-// Scene-level audio durations keep subtitles, image cuts and narration aligned.
+// Sahne bazlı ses süreleri sayesinde altyazı, görsel geçişi ve anlatım birbirinden kopmadan senkron kalır.
 function resolveSceneDurationsInFrames(sceneCount: number, sceneDurationsInFrames?: number[]) {
   if (!sceneDurationsInFrames?.length) return [];
   const safeSceneCount = Math.max(sceneCount, 1);
@@ -77,7 +77,7 @@ async function getAudioDurationSeconds(projectId: string, audioPath?: string) {
   }
 }
 
-// Hard limit keeps demo videos short even if a provider returns long narration.
+// Provider beklenenden uzun ses döndürse bile demo videosunun kısa kalması için üst süre sınırı uygulanır.
 function resolveDurationInFrames(sceneCount: number, audioSeconds: number) {
   const safeSceneCount = Math.max(sceneCount, 1);
   const targetSeconds = safeSceneCount <= 3 ? 18 : safeSceneCount === 4 ? 20 : safeSceneCount === 5 ? 20 : 20;
@@ -96,7 +96,7 @@ function renderSize(aspectRatio: VideoProps["aspectRatio"]) {
   return { width: 1080, height: 1920 };
 }
 
-// Final ffmpeg pass improves sharpness/color and normalizes audio for social-media style playback.
+// Son ffmpeg geçişi görüntüyü keskinleştirir, renkleri toparlar ve sesi sosyal medya oynatımı için normalize eder.
 async function enhanceRenderedVideo(inputPath: string, outputPath: string, aspectRatio: VideoProps["aspectRatio"]) {
   const { width, height } = renderSize(aspectRatio);
   const hasAudio = await hasAudioStream(inputPath);

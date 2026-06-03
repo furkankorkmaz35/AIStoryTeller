@@ -1,6 +1,6 @@
 import { Schema, model } from "mongoose";
 
-// One MongoDB project equals one prompt-to-video production run.
+// MongoDB'deki her Project kaydı, kullanıcı promptundan başlayan tek bir video üretim çalışmasını temsil eder.
 export const projectStatuses = [
   "queued",
   "generating_story",

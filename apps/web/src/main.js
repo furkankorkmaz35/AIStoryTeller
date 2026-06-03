@@ -2,5 +2,5 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import "./styles.css";
 
-// Vue app bootstrap; all feature logic starts from App.vue and composables.
+// Vue uygulamasını başlatır; ekran akışı App.vue'dan, veri/iş mantığı ise composable dosyalarından yönetilir.
 createApp(App).mount("#app");

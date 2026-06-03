@@ -9,7 +9,7 @@ defineProps({
 </script>
 
 <template>
-  <!-- Small counters summarize what is stored and what is still processing. -->
+  <!-- Küçük sayaçlar MongoDB'de kaç video/sahne olduğunu ve kaç işin hâlâ işlendiğini hızlıca özetler. -->
   <section class="studio-metrics" aria-label="Stüdyo özeti">
     <div class="metric-card depth-card">
       <span>Videolar</span>

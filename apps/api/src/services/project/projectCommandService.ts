@@ -8,7 +8,7 @@ import type { z } from "zod";
 type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export async function createQueuedProject(input: CreateProjectInput) {
-  // Demo quality is more stable with three short scenes: fewer visuals, tighter audio sync.
+  // Demo kalitesi üç kısa sahnede daha stabil: daha az görsel üretilir ve ses-görüntü senkronu daha kolay korunur.
   const sceneCount = 3;
   const project = await ProjectModel.create({
     ...input,

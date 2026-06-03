@@ -17,7 +17,7 @@ const emit = defineEmits(["select", "changePage"]);
 </script>
 
 <template>
-  <!-- Pagination keeps previous demo outputs visible without stretching the page forever. -->
+  <!-- Sayfalama, eski demo videolarını saklar ama galeri listesinin sayfayı gereksiz uzatmasını engeller. -->
   <section class="projects-panel">
     <div class="panel-heading">
       <div>

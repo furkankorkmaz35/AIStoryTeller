@@ -1,13 +1,13 @@
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 
-// Converts backend asset paths into playable URLs for video, image and audio previews.
+// Backend'in döndürdüğü /outputs/... dosya yollarını tarayıcıda oynatılabilir tam URL'lere çevirir.
 export function assetUrl(path) {
   if (!path) return "";
   if (path.startsWith("http")) return path;
   return `${apiBaseUrl}${path}`;
 }
 
-// Project creation is intentionally the only mutating call the simplified UI exposes.
+// Sadeleştirilmiş UI'da kullanıcı sadece yeni video üretimi başlatır; bu yüzden tek yazma işlemi proje oluşturmadır.
 export async function createProject(payload) {
   return apiRequest("/api/projects", {
     method: "POST",
@@ -28,14 +28,14 @@ export async function getSystemStatus() {
   return apiRequest("/api/system/status");
 }
 
-// One fetch wrapper keeps every API call using the same base URL and error handling.
+// Tüm API çağrıları aynı base URL ve hata yakalama mantığını kullansın diye ortak fetch yardımcı fonksiyonu.
 async function apiRequest(path, options) {
   const response = await fetch(`${apiBaseUrl}${path}`, options);
   if (!response.ok) throw new Error((await safeError(response)) || "API isteği başarısız oldu.");
   return response.json();
 }
 
-// API errors can be plain text or JSON depending on the failing middleware/provider.
+// Hata bazen backend middleware'inden, bazen provider servisinden gelir; JSON okunamazsa boş mesajla güvenli döner.
 async function safeError(response) {
   try {
     const body = await response.json();

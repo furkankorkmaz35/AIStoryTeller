@@ -3,7 +3,7 @@ import { createQueuedProject } from "../services/project/projectCommandService.j
 import { getProjectDetail, listProjectsWithThumbnails } from "../services/project/projectQueryService.js";
 import { createProjectSchema } from "../validators/projectSchemas.js";
 
-// Controllers only translate HTTP input/output; business rules live in project services.
+// Controller katmanı sadece HTTP istek/cevap çevirisi yapar; iş kuralları servislerde kalır, mimari daha temiz olur.
 export async function createProject(request: Request, response: Response, next: NextFunction) {
   try {
     const body = createProjectSchema.parse(request.body);

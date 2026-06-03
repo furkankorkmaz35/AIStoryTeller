@@ -4,7 +4,7 @@ import { getSystemStatus } from "../lib/api";
 export function useSystemStatus() {
   const systemStatus = ref(null);
 
-  // Reads provider/key/queue status for the small health indicators in the UI.
+  // Provider, API key ve kuyruk durumunu okur; üstteki küçük sağlık göstergeleri bu verilerle güncellenir.
   async function refreshSystemStatus() {
     try {
       systemStatus.value = await getSystemStatus();

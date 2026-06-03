@@ -9,7 +9,7 @@ const emit = defineEmits(["refresh"]);
 </script>
 
 <template>
-  <!-- Only appears when API/Mongo/Redis is not reachable. -->
+  <!-- API, MongoDB veya Redis erişilemezse görünür; kullanıcıya sistemin beklediğini net şekilde anlatır. -->
   <section v-if="apiError" class="notice-card depth-card">
     <AlertTriangle :size="20" />
     <div>

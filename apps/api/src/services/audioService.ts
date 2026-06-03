@@ -10,7 +10,7 @@ import { ensureProjectOutput, publicPathFor } from "../utils/paths.js";
 
 const execFileAsync = promisify(execFile);
 
-// Generates one Turkish narration file, but asks ElevenLabs scene by scene for better sync.
+// Tek bir Türkçe anlatım dosyası üretir; ancak ElevenLabs'e sahne sahne istek atarak kesilme riskini azaltır ve süreleri ölçer.
 export async function generateSceneNarration(projectId: string, sceneTexts: string[], _language = "tr", requestedProvider = env.ttsProvider, voiceId = "") {
   const projectDir = await ensureProjectOutput(projectId);
   const cleanedScenes = sceneTexts.map(prepareSceneNarrationText).filter(Boolean);
@@ -36,7 +36,7 @@ export async function generateSceneNarration(projectId: string, sceneTexts: stri
   };
 }
 
-// Tries configured Turkish voices in order; if one voice truncates text, the next voice is tested.
+// Tanımlı sesleri sırayla dener; bir voice hata verirse veya metni kısa keserse otomatik olarak sonraki sese geçer.
 async function tryElevenLabsSceneNarration(projectDir: string, scenes: string[], voiceId = "") {
   if (!env.elevenLabsApiKey) {
     console.warn("ELEVENLABS_API_KEY is missing, using audio fallback.");
@@ -87,7 +87,7 @@ function uniqueVoiceIds(voiceIds: string[]) {
   return [...new Set(voiceIds.map((id) => id.trim()).filter(Boolean))];
 }
 
-// Single scene requests reduce ElevenLabs free-tier truncation and give measurable scene durations.
+// Her sahneyi ayrı TTS isteği yapmak free-tier metin kesilmesini azaltır ve her sahnenin kaç saniye sürdüğünü ölçmemizi sağlar.
 async function writeElevenLabsChunk(client: ElevenLabsClient, voiceId: string, text: string, outputPath: string) {
   const audioStream = await client.textToSpeech.convert(
     voiceId,
@@ -108,7 +108,7 @@ async function writeElevenLabsChunk(client: ElevenLabsClient, voiceId: string, t
   await pipeline(audioStream, createWriteStream(outputPath));
 }
 
-// Joins per-scene MP3 files without re-encoding so narration stays as natural as ElevenLabs returned it.
+// Sahne MP3 parçalarını tekrar encode etmeden birleştirir; böylece ElevenLabs'ten gelen ses kalitesi korunur.
 async function concatMp3Files(projectDir: string, partPaths: string[], outputPath: string) {
   const listPath = path.join(projectDir, `concat-${Date.now()}.txt`);
   const listContent = partPaths.map((partPath) => `file '${escapeConcatPath(partPath)}'`).join("\n");
@@ -120,7 +120,7 @@ async function concatMp3Files(projectDir: string, partPaths: string[], outputPat
   }
 }
 
-// Keeps narration short enough for 15-20 second classroom demos.
+// Demo videosu 15-20 saniye bandında kalsın diye sahne anlatımlarını kısa, net ve okunabilir cümlelere indirir.
 function prepareSceneNarrationText(text: string) {
   const clean = text
     .replace(/```[\s\S]*?```/g, " ")
@@ -139,7 +139,7 @@ function limitSceneNarration(text: string) {
   return words.slice(0, maxWords).join(" ").slice(0, maxCharacters).trim();
 }
 
-// Used only when real audio is unavailable; keeps the render pipeline from failing during demos.
+// Gerçek ses üretilemezse kullanılır; sessiz fallback sayesinde render pipeline tamamen bozulmadan devam eder.
 function estimateSceneDurationsFromText(scenes: string[]) {
   return scenes.map((scene) => clamp(scene.split(/\s+/).filter(Boolean).length * 0.38 + 0.55, 2.4, 6.8));
 }
@@ -166,7 +166,7 @@ async function getAudioDurationSeconds(filePath: string) {
   }
 }
 
-// Rejects obviously truncated ElevenLabs chunks before they reach the final render.
+// Çok kısa dönen ElevenLabs parçalarını final videoya sokmadan reddeder; bu sayede eksik sesli video oluşması engellenir.
 function estimateMinimumAudioSeconds(text: string) {
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.max(2.2, words * 0.18);
@@ -186,7 +186,7 @@ function escapeConcatPath(value: string) {
   return value.replaceAll("'", "'\\''");
 }
 
-// Minimal WAV generator for no-key/offline fallback; not used when ElevenLabs succeeds.
+// API key yoksa veya TTS servisleri çökerse minimum sessiz WAV üretir; ElevenLabs başarılıysa bu yol kullanılmaz.
 function createSilentWav(durationInSeconds: number): Buffer {
   const sampleRate = 44100;
   const channels = 1;

@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-// A project is rendered from ordered scenes; each scene owns its text, prompt and selected visual.
+// Video sıralı sahnelerden oluşur; her sahne kendi metnini, görsel promptunu ve seçilen görsel materyalini taşır.
 const sceneSchema = new Schema(
   {
     projectId: { type: Types.ObjectId, ref: "Project", required: true, index: true },

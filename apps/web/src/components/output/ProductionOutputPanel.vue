@@ -74,7 +74,7 @@ function eventStepLabel(step) {
     </div>
 
     <aside class="output-panel depth-card">
-      <!-- This panel is the classroom proof: MongoDB id, generated assets and pipeline logs. -->
+      <!-- Bu panel sunum kanıtıdır: MongoDB proje id'si, üretilen medya dosyaları ve pipeline logları burada görünür. -->
       <div class="output-hero">
         <div>
           <span class="eyebrow">Üretim özeti</span>

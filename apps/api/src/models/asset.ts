@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-// Stores generated media evidence: image, audio, subtitle and final MP4 paths per project.
+// Üretilen medya kanıtlarını tutar: her proje için görsel, ses, altyazı ve final MP4 dosya yolları burada kayıtlıdır.
 const assetSchema = new Schema(
   {
     projectId: { type: Types.ObjectId, ref: "Project", required: true, index: true },

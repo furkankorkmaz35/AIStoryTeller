@@ -1,4 +1,4 @@
-// Shared pipeline order for progress bars, gallery cards and the production output panel.
+// Backend pipeline sırası tek yerde tutulur; progress bar, galeri kartı ve çıktı paneli aynı sırayı kullanır.
 export const statusSteps = [
   "queued",
   "generating_story",
@@ -24,7 +24,7 @@ export const statusLabels = {
   failed: "Durdu"
 };
 
-// Converts backend status into a stable percentage for the circular progress indicator.
+// Backend status değerini yüzdeye çevirir; video üzerindeki dairesel ilerleme göstergesi bu sonucu kullanır.
 export function projectProgress(status) {
   if (status === "failed") return 100;
   const index = statusSteps.indexOf(status);
